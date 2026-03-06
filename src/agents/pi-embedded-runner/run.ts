@@ -46,7 +46,6 @@ import {
   isLikelyContextOverflowError,
   isFailoverAssistantError,
   isFailoverErrorMessage,
-  isOverloadedErrorMessage,
   parseImageSizeError,
   parseImageDimensionError,
   isRateLimitAssistantError,
@@ -1179,10 +1178,8 @@ export async function runEmbeddedPiAgent(
               };
             }
             const promptFailoverReason = classifyFailoverReason(errorText);
-            const promptProfileFailureReason = resolveAuthProfileFailureReason(
-              errorText,
-              promptFailoverReason,
-            );
+            const promptProfileFailureReason =
+              resolveAuthProfileFailureReason(promptFailoverReason);
             await maybeMarkAuthProfileFailure({
               profileId: lastProfileId,
               reason: promptProfileFailureReason,
@@ -1236,10 +1233,8 @@ export async function runEmbeddedPiAgent(
           const billingFailure = isBillingAssistantError(lastAssistant);
           const failoverFailure = isFailoverAssistantError(lastAssistant);
           const assistantFailoverReason = classifyFailoverReason(lastAssistant?.errorMessage ?? "");
-          const assistantProfileFailureReason = resolveAuthProfileFailureReason(
-            lastAssistant?.errorMessage ?? "",
-            assistantFailoverReason,
-          );
+          const assistantProfileFailureReason =
+            resolveAuthProfileFailureReason(assistantFailoverReason);
           const cloudCodeAssistFormatError = attempt.cloudCodeAssistFormatError;
           const imageDimensionError = parseImageDimensionError(lastAssistant?.errorMessage ?? "");
 
