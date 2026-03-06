@@ -27,6 +27,23 @@ require_cmd() {
   fi
 }
 
+is_writable_dir() {
+  local dir="$1"
+  [[ -n "$dir" && -d "$dir" && -w "$dir" ]]
+}
+
+resolve_image_tmp_dir() {
+  if is_writable_dir "${TMPDIR:-}"; then
+    printf '%s' "$TMPDIR"
+    return 0
+  fi
+  if is_writable_dir "/var/tmp"; then
+    printf '%s' "/var/tmp"
+    return 0
+  fi
+  printf '%s' "/tmp"
+}
+
 is_root() { [[ "$(id -u)" -eq 0 ]]; }
 
 run_root() {
@@ -215,11 +232,13 @@ BUILD_ARGS=()
 podman build ${BUILD_ARGS[@]+"${BUILD_ARGS[@]}"} -t openclaw:local -f "$REPO_PATH/Dockerfile" "$REPO_PATH"
 
 echo "Loading image into $OPENCLAW_USER's Podman store..."
-TMP_IMAGE="$(mktemp -p /tmp openclaw-image.XXXXXX.tar)"
+TMP_IMAGE_DIR="$(resolve_image_tmp_dir)"
+echo "Using temporary image dir: $TMP_IMAGE_DIR"
+TMP_IMAGE="$(mktemp -p "$TMP_IMAGE_DIR" openclaw-image.XXXXXX.tar)"
 trap 'rm -f "$TMP_IMAGE"' EXIT
 podman save openclaw:local -o "$TMP_IMAGE"
 chmod 644 "$TMP_IMAGE"
-(cd /tmp && run_as_user "$OPENCLAW_USER" env HOME="$OPENCLAW_HOME" podman load -i "$TMP_IMAGE")
+run_as_user "$OPENCLAW_USER" env HOME="$OPENCLAW_HOME" podman load -i "$TMP_IMAGE"
 rm -f "$TMP_IMAGE"
 trap - EXIT
 
