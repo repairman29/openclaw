@@ -8,7 +8,9 @@ import type { InlineCodeState } from "../markdown/code-spans.js";
 import { buildCodeSpanIndex, createInlineCodeState } from "../markdown/code-spans.js";
 import { EmbeddedBlockChunker } from "./pi-embedded-block-chunker.js";
 import {
+  extractReplyTextFromPossibleJson,
   isMessagingToolDuplicateNormalized,
+  looksLikeStructuredAssistantJsonReply,
   normalizeTextForComparison,
 } from "./pi-embedded-helpers.js";
 import { createEmbeddedPiSessionEventHandler } from "./pi-embedded-subscribe.handlers.js";
@@ -466,6 +468,11 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     if (state.suppressBlockChunks) {
       return;
     }
+    const visibleStreamText = state.lastStreamedAssistant ?? state.deltaBuffer;
+    if (looksLikeStructuredAssistantJsonReply(visibleStreamText)) {
+      // Hold structured JSON-like output until message_end so the final sanitized reply wins.
+      return;
+    }
     // Strip <think> and <final> blocks across chunk boundaries to avoid leaking reasoning.
     // Also strip downgraded tool call text ([Tool Call: ...], [Historical context: ...], etc.).
     const chunk = stripDowngradedToolCallText(stripBlockTags(text, state.blockState)).trimEnd();
@@ -510,8 +517,10 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     if (!cleanedText && (!mediaUrls || mediaUrls.length === 0) && !audioAsVoice) {
       return;
     }
+    // Unwrap JSON blobs from small models so we don't send raw JSON to Discord etc.
+    const payloadText = extractReplyTextFromPossibleJson(cleanedText);
     void params.onBlockReply({
-      text: cleanedText,
+      text: payloadText,
       mediaUrls: mediaUrls?.length ? mediaUrls : undefined,
       audioAsVoice,
       replyToId,

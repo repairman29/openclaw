@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+src/mlx_forge/__init__.py
+src/mlx_forge/cli.py
+src/mlx_forge/dashboard.py
+src/mlx_forge/run_model.py
+src/mlx_forge/smash.py
+src/mlx_forge/sweeper.py
+src/mlx_forge.egg-info/PKG-INFO
+src/mlx_forge.egg-info/SOURCES.txt
+src/mlx_forge.egg-info/dependency_links.txt
+src/mlx_forge.egg-info/entry_points.txt
+src/mlx_forge.egg-info/requires.txt
+src/mlx_forge.egg-info/top_level.txt
+tests/test_sweeper.py

@@ -405,13 +405,20 @@ export function syncUrlWithSessionKey(host: SettingsHost, sessionKey: string, re
 }
 
 export async function loadOverview(host: SettingsHost) {
+  const app = host as unknown as OpenClawApp;
   await Promise.all([
-    loadChannels(host as unknown as OpenClawApp, false),
-    loadPresence(host as unknown as OpenClawApp),
-    loadSessions(host as unknown as OpenClawApp),
-    loadCronStatus(host as unknown as OpenClawApp),
-    loadDebug(host as unknown as OpenClawApp),
+    loadChannels(app, false),
+    loadPresence(app),
+    loadSessions(app),
+    loadCronStatus(app),
+    loadCronJobs(app),
+    loadDebug(app),
   ]);
+  // Overview needs all cron runs for reliability, timeout, and delivery stats.
+  // Always load with scope "all"; cron tab filter resets when viewing overview.
+  app.cronRunsScope = "all";
+  app.cronRunsJobId = null;
+  await loadCronRuns(app, null);
 }
 
 export async function loadChannelsTab(host: SettingsHost) {

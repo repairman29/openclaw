@@ -4,7 +4,9 @@ import { SILENT_REPLY_TOKEN } from "../auto-reply/tokens.js";
 import { emitAgentEvent } from "../infra/agent-events.js";
 import { createInlineCodeState } from "../markdown/code-spans.js";
 import {
+  extractReplyTextFromPossibleJson,
   isMessagingToolDuplicateNormalized,
+  looksLikeStructuredAssistantJsonReply,
   normalizeTextForComparison,
 } from "./pi-embedded-helpers.js";
 import type { EmbeddedPiSubscribeContext } from "./pi-embedded-subscribe.handlers.types.js";
@@ -196,11 +198,12 @@ export function handleMessageUpdate(
     const mediaUrls = parsedDelta?.mediaUrls;
     const hasMedia = Boolean(mediaUrls && mediaUrls.length > 0);
     const hasAudio = Boolean(parsedDelta?.audioAsVoice);
+    const suppressStructuredStream = looksLikeStructuredAssistantJsonReply(next);
     const previousCleaned = ctx.state.lastStreamedAssistantCleaned ?? "";
 
     let shouldEmit = false;
     let deltaText = "";
-    if (!cleanedText && !hasMedia && !hasAudio) {
+    if (suppressStructuredStream || (!cleanedText && !hasMedia && !hasAudio)) {
       shouldEmit = false;
     } else if (previousCleaned && !cleanedText.startsWith(previousCleaned)) {
       shouldEmit = false;
@@ -321,8 +324,15 @@ export function handleMessageEnd(
     ctx.state.emittedAssistantUpdate = true;
   }
 
-  const addedDuringMessage = ctx.state.assistantTexts.length > ctx.state.assistantTextBaseline;
-  const chunkerHasBuffered = ctx.blockChunker?.hasBuffered() ?? false;
+  const suppressStructuredStream = looksLikeStructuredAssistantJsonReply(
+    ctx.state.lastStreamedAssistant ?? ctx.state.deltaBuffer,
+  );
+  const addedDuringMessage = suppressStructuredStream
+    ? false
+    : ctx.state.assistantTexts.length > ctx.state.assistantTextBaseline;
+  const chunkerHasBuffered = suppressStructuredStream
+    ? false
+    : (ctx.blockChunker?.hasBuffered() ?? false);
   ctx.finalizeAssistantTexts({ text, addedDuringMessage, chunkerHasBuffered });
 
   const onBlockReply = ctx.params.onBlockReply;
@@ -360,10 +370,11 @@ export function handleMessageEnd(
       replyToTag,
       replyToCurrent,
     } = splitResult;
+    const payloadText = cleanedText ? extractReplyTextFromPossibleJson(cleanedText) : cleanedText;
     // Emit if there's content OR audioAsVoice flag (to propagate the flag).
-    if (cleanedText || (mediaUrls && mediaUrls.length > 0) || audioAsVoice) {
+    if (payloadText || (mediaUrls && mediaUrls.length > 0) || audioAsVoice) {
       void onBlockReply({
-        text: cleanedText,
+        text: payloadText,
         mediaUrls: mediaUrls?.length ? mediaUrls : undefined,
         audioAsVoice,
         replyToId,
@@ -379,7 +390,7 @@ export function handleMessageEnd(
     text &&
     onBlockReply
   ) {
-    if (ctx.blockChunker?.hasBuffered()) {
+    if (ctx.blockChunker?.hasBuffered() && !suppressStructuredStream) {
       ctx.blockChunker.drain({ force: true, emit: ctx.emitBlockChunk });
       ctx.blockChunker.reset();
     } else if (text !== ctx.state.lastBlockReplyText) {

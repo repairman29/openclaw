@@ -1,6 +1,10 @@
 import { ChannelType, type RequestClient } from "@buape/carbon";
 import { resolveAckReaction, resolveHumanDelayConfig } from "../../agents/identity.js";
 import { EmbeddedBlockChunker } from "../../agents/pi-embedded-block-chunker.js";
+import {
+  extractReplyTextFromPossibleJson,
+  looksLikeStructuredAssistantJsonReply,
+} from "../../agents/pi-embedded-helpers.js";
 import { resolveChunkMode } from "../../auto-reply/chunk.js";
 import { dispatchInboundMessage } from "../../auto-reply/dispatch.js";
 import { formatInboundEnvelope, resolveEnvelopeFormatOptions } from "../../auto-reply/envelope.js";
@@ -613,7 +617,11 @@ export async function processDiscordMessage(ctx: DiscordMessagePreflightContext)
           await flushDraft();
           const hasMedia = Boolean(payload.mediaUrl) || (payload.mediaUrls?.length ?? 0) > 0;
           const finalText = payload.text;
-          const previewFinalText = resolvePreviewFinalText(finalText);
+          const guardedFinalText =
+            typeof finalText === "string" && looksLikeStructuredAssistantJsonReply(finalText)
+              ? extractReplyTextFromPossibleJson(finalText)
+              : finalText;
+          const previewFinalText = resolvePreviewFinalText(guardedFinalText);
           const previewMessageId = draftStream.messageId();
 
           // Try to finalize via preview edit (text-only, fits in 2000 chars, not an error)
@@ -687,8 +695,12 @@ export async function processDiscordMessage(ctx: DiscordMessagePreflightContext)
         }
 
         const replyToId = replyReference.use();
+        const deliveryPayload =
+          typeof payload.text === "string" && looksLikeStructuredAssistantJsonReply(payload.text)
+            ? { ...payload, text: extractReplyTextFromPossibleJson(payload.text) }
+            : payload;
         await deliverDiscordReply({
-          replies: [payload],
+          replies: [deliveryPayload],
           target: deliverTarget,
           token,
           accountId,

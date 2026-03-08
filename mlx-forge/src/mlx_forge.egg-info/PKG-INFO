@@ -1,0 +1,69 @@
+Metadata-Version: 2.4
+Name: mlx-forge
+Version: 0.1.0
+Summary: M-series local inference optimizer & memory manager for Maclawd
+Author: Maclawd
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: mlx>=0.23
+Requires-Dist: psutil>=5.9
+Requires-Dist: rich>=13.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7; extra == "dev"
+Requires-Dist: ruff>=0.1; extra == "dev"
+Provides-Extra: smash
+Requires-Dist: mlx-lm>=0.25; extra == "smash"
+
+# mlx-forge
+
+**The M-series local inference optimizer & memory manager**
+
+CLI and background daemon for monitoring and optimizing Apple Silicon (M1–M4) resources during local AI workloads. Prevents OOMs, manages Metal cache, and provides a terminal dashboard for Unified Memory.
+
+Part of Project Maclawd (MacBook bot). See `docs/project-maclawd.md` in the repo.
+
+## Install
+
+From repo root:
+
+```bash
+cd mlx-forge
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e .
+```
+
+## Commands
+
+| Command | Description |
+|--------|--------------|
+| `forge top` | Real-time Unified Memory & Metal cache dashboard |
+| `forge sweep` | Force-clear MLX Metal cache and Python GC |
+| `forge smash <hf-repo-id> [--bits 4] [--out-dir DIR]` | Convert and quantize a HuggingFace model to MLX (requires `pip install mlx-lm`) |
+| `forge run <model-path> [--prompt "…"] [--guard-thermals]` | Run an MLX model; `--guard-thermals` uses chunked generation with pauses to reduce thermal load |
+
+## Quick start
+
+```bash
+# Free Metal cache between heavy runs (use after Workhorse, before next task)
+forge sweep
+
+# Watch memory while a model is loading or generating
+forge top
+```
+
+## Requirements
+
+- macOS with Apple Silicon
+- Python 3.10+
+- MLX (`pip install mlx`)
+- For `forge smash` and `forge run`: `pip install mlx-lm` (or `pip install -e ".[smash]"`)
+
+## Dev: tests and lint
+
+```bash
+pip install -e ".[dev]"
+pytest tests/ -v
+ruff check src/ tests/
+```

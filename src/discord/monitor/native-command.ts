@@ -19,6 +19,10 @@ import {
   resolveConfiguredAcpRoute,
 } from "../../acp/persistent-bindings.route.js";
 import { resolveHumanDelayConfig } from "../../agents/identity.js";
+import {
+  extractReplyTextFromPossibleJson,
+  looksLikeStructuredAssistantJsonReply,
+} from "../../agents/pi-embedded-helpers.js";
 import { resolveChunkMode, resolveTextChunkLimit } from "../../auto-reply/chunk.js";
 import type {
   ChatCommandDefinition,
@@ -1738,7 +1742,10 @@ async function deliverDiscordInteractionReply(params: {
 }) {
   const { interaction, payload, textLimit, maxLinesPerMessage, preferFollowUp, chunkMode } = params;
   const mediaList = payload.mediaUrls ?? (payload.mediaUrl ? [payload.mediaUrl] : []);
-  const text = payload.text ?? "";
+  const payloadText = payload.text ?? "";
+  const text = looksLikeStructuredAssistantJsonReply(payloadText)
+    ? extractReplyTextFromPossibleJson(payloadText)
+    : payloadText;
 
   let hasReplied = false;
   const sendMessage = async (content: string, files?: { name: string; data: Buffer }[]) => {

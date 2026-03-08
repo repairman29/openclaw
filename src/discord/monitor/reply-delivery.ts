@@ -1,5 +1,9 @@
 import type { RequestClient } from "@buape/carbon";
 import { resolveAgentAvatar } from "../../agents/identity-avatar.js";
+import {
+  extractReplyTextFromPossibleJson,
+  looksLikeStructuredAssistantJsonReply,
+} from "../../agents/pi-embedded-helpers.js";
 import type { ChunkMode } from "../../auto-reply/chunk.js";
 import type { ReplyPayload } from "../../auto-reply/types.js";
 import { loadConfig } from "../../config/config.js";
@@ -267,7 +271,10 @@ export async function deliverDiscordReply(params: {
   let deliveredAny = false;
   for (const payload of params.replies) {
     const mediaList = payload.mediaUrls ?? (payload.mediaUrl ? [payload.mediaUrl] : []);
-    const rawText = payload.text ?? "";
+    const payloadText = payload.text ?? "";
+    const rawText = looksLikeStructuredAssistantJsonReply(payloadText)
+      ? extractReplyTextFromPossibleJson(payloadText)
+      : payloadText;
     const tableMode = params.tableMode ?? "code";
     const text = convertMarkdownTables(rawText, tableMode);
     if (!text && mediaList.length === 0) {

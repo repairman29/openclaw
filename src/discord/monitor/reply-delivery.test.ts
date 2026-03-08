@@ -230,6 +230,23 @@ describe("deliverDiscordReply", () => {
     );
   });
 
+  it("unwraps structured assistant JSON before sending to Discord", async () => {
+    await deliverDiscordReply({
+      replies: [{ text: '{"type":"message","content":"hello","context":{"metadata":{}}}' }],
+      target: "channel:789",
+      token: "token",
+      runtime,
+      textLimit: 2000,
+    });
+
+    expect(sendMessageDiscordMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageDiscordMock).toHaveBeenCalledWith(
+      "channel:789",
+      "hello",
+      expect.objectContaining({ token: "token" }),
+    );
+  });
+
   it("sends text chunks in order via sendDiscordText when rest is provided", async () => {
     const fakeRest = {} as import("@buape/carbon").RequestClient;
     const callOrder: string[] = [];

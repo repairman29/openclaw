@@ -14,6 +14,8 @@ export {
   formatBillingErrorMessage,
   classifyFailoverReason,
   classifyFailoverReasonFromHttpStatus,
+  extractReplyTextFromPossibleJson,
+  looksLikeStructuredAssistantJsonReply,
   formatRawAssistantErrorForUi,
   formatAssistantErrorText,
   getApiErrorPayloadFingerprint,

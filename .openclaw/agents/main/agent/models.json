@@ -1,0 +1,26 @@
+{
+  "providers": {
+    "npu-bridge": {
+      "baseUrl": "http://localhost:9190",
+      "apiKey": "dummy-key-for-local",
+      "api": "openai-completions",
+      "models": [
+        {
+          "id": "pixel-npu",
+          "name": "Pixel NPU (host)",
+          "reasoning": false,
+          "input": ["text"],
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "contextWindow": 32000,
+          "maxTokens": 512,
+          "api": "openai-completions"
+        }
+      ]
+    }
+  }
+}

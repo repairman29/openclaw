@@ -1,0 +1,10 @@
+mlx>=0.23
+psutil>=5.9
+rich>=13.0
+
+[dev]
+pytest>=7
+ruff>=0.1
+
+[smash]
+mlx-lm>=0.25

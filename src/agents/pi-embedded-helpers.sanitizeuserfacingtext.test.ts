@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   downgradeOpenAIFunctionCallReasoningPairs,
   downgradeOpenAIReasoningBlocks,
+  extractReplyTextFromPossibleJson,
   isMessagingToolDuplicate,
+  looksLikeStructuredAssistantJsonReply,
   normalizeTextForComparison,
   sanitizeToolCallId,
   sanitizeUserFacingText,
@@ -110,6 +112,79 @@ describe("sanitizeUserFacingText", () => {
 
   it.each(["\n\n", "  \n  "])("returns empty for whitespace-only input: %j", (input) => {
     expect(sanitizeUserFacingText(input)).toBe("");
+  });
+
+  it("unwraps JSON-like reply text so raw JSON is not sent to channels", () => {
+    expect(sanitizeUserFacingText('{"message": "Hello there"}')).toBe("Hello there");
+    expect(sanitizeUserFacingText('{"text": "Reply content"}')).toBe("Reply content");
+    expect(sanitizeUserFacingText('  {"response": "Ok"}  ')).toBe("Ok");
+    expect(sanitizeUserFacingText('{"reply": "Done"}')).toBe("Done");
+  });
+});
+
+describe("extractReplyTextFromPossibleJson", () => {
+  it("returns non-JSON text unchanged", () => {
+    expect(extractReplyTextFromPossibleJson("Hello world")).toBe("Hello world");
+    expect(extractReplyTextFromPossibleJson("  Plain text  ")).toBe("  Plain text  ");
+    expect(extractReplyTextFromPossibleJson("")).toBe("");
+  });
+
+  it("unwraps object with message/text/content/response/reply/answer", () => {
+    expect(extractReplyTextFromPossibleJson('{"message": "Hi"}')).toBe("Hi");
+    expect(extractReplyTextFromPossibleJson('{"text": "Content"}')).toBe("Content");
+    expect(extractReplyTextFromPossibleJson('{"content": "Body"}')).toBe("Body");
+    expect(extractReplyTextFromPossibleJson('{"response": "Ok"}')).toBe("Ok");
+    expect(extractReplyTextFromPossibleJson('{"reply": "Done"}')).toBe("Done");
+    expect(extractReplyTextFromPossibleJson('{"answer": "42"}')).toBe("42");
+  });
+
+  it("prefers first known key in order", () => {
+    expect(extractReplyTextFromPossibleJson('{"reply": "R", "message": "M"}')).toBe("M");
+  });
+
+  it("returns original when no known key or value not a non-empty string", () => {
+    expect(extractReplyTextFromPossibleJson('{"other": "x"}')).toBe('{"other": "x"}');
+    expect(extractReplyTextFromPossibleJson('{"message": ""}')).toBe('{"message": ""}');
+    expect(extractReplyTextFromPossibleJson('{"message": null}')).toBe('{"message": null}');
+  });
+
+  it("returns original when not valid JSON or not an object", () => {
+    expect(extractReplyTextFromPossibleJson("{ invalid }")).toBe("{ invalid }");
+    expect(extractReplyTextFromPossibleJson("[1,2,3]")).toBe("[1,2,3]");
+    expect(extractReplyTextFromPossibleJson("null")).toBe("null");
+  });
+
+  it("extracts first content string when JSON is truncated (invalid)", () => {
+    expect(extractReplyTextFromPossibleJson('{"type":"message","content":"you back on')).toBe(
+      "you back on",
+    );
+    expect(extractReplyTextFromPossibleJson('{"content":"test"')).toBe("test");
+    expect(extractReplyTextFromPossibleJson('{"content":"fix"')).toBe("fix");
+  });
+
+  it("unescapes content and rejects empty or oversized extracted content", () => {
+    expect(extractReplyTextFromPossibleJson('{"content":"say \\"hi\\""')).toBe('say "hi"');
+    expect(extractReplyTextFromPossibleJson('{"content":""')).toBe('{"content":""');
+  });
+
+  it("extracts content from single-quoted JSON and from embedded JSON", () => {
+    expect(extractReplyTextFromPossibleJson("{'content':'hello'}")).toBe("hello");
+    expect(
+      extractReplyTextFromPossibleJson('Prefix: {"type":"message","content":"hi","context":{}}'),
+    ).toBe("hi");
+  });
+});
+
+describe("looksLikeStructuredAssistantJsonReply", () => {
+  it("detects structured JSON reply envelopes and prefixes", () => {
+    expect(looksLikeStructuredAssistantJsonReply('{"type":"message","content":"hi"}')).toBe(true);
+    expect(looksLikeStructuredAssistantJsonReply('{"type":"message","conte')).toBe(true);
+    expect(looksLikeStructuredAssistantJsonReply("{'content':'hello'}")).toBe(true);
+  });
+
+  it("does not flag normal prose", () => {
+    expect(looksLikeStructuredAssistantJsonReply("Hello there")).toBe(false);
+    expect(looksLikeStructuredAssistantJsonReply('{"other":"value"}')).toBe(false);
   });
 });
 

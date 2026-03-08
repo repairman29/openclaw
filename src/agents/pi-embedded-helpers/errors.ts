@@ -682,7 +682,94 @@ export function sanitizeUserFacingText(text: string, opts?: { errorContext?: boo
   // Strip leading blank lines (including whitespace-only lines) without clobbering indentation on
   // the first content line (e.g. markdown/code blocks).
   const withoutLeadingEmptyLines = stripped.replace(/^(?:[ \t]*\r?\n)+/, "");
-  return collapseConsecutiveDuplicateBlocks(withoutLeadingEmptyLines);
+  const collapsed = collapseConsecutiveDuplicateBlocks(withoutLeadingEmptyLines);
+  // Unwrap JSON-like reply text so small models that dump raw JSON don't send it to channels.
+  return extractReplyTextFromPossibleJson(collapsed);
+}
+
+// Matches first "content" key's double-quoted value (handles escaped quotes and truncated JSON).
+const CONTENT_DOUBLE_RE = /"content"\s*:\s*"((?:[^"\\]|\\.)*)"?/;
+// Matches first 'content' key's single-quoted value (some models output single quotes).
+const CONTENT_SINGLE_RE = /'content'\s*:\s*'((?:[^'\\]|\\.)*)'?/;
+const STRUCTURED_JSON_REPLY_PREFIX_RE =
+  /^\s*\{[\s\S]{0,512}(?:"type"\s*:|'type'\s*:|"content"\s*:|'content'\s*:|"context"\s*:|'context'\s*:|"metadata"\s*:|'metadata'\s*:)/;
+
+function extractFirstContentString(text: string): string | undefined {
+  const double = text.match(CONTENT_DOUBLE_RE);
+  if (double?.[1] !== undefined) {
+    const unescaped = double[1].replace(/\\(.)/g, "$1").trim();
+    if (unescaped.length > 0 && unescaped.length <= 4000) {
+      return unescaped;
+    }
+  }
+  const single = text.match(CONTENT_SINGLE_RE);
+  if (single?.[1] !== undefined) {
+    const unescaped = single[1].replace(/\\(.)/g, "$1").trim();
+    if (unescaped.length > 0 && unescaped.length <= 4000) {
+      return unescaped;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Detect the bad small-model pattern where the assistant streams a structured JSON envelope
+ * instead of plain reply text. We use this to suppress block/partial streaming until the final,
+ * sanitized reply is available.
+ */
+export function looksLikeStructuredAssistantJsonReply(text: string): boolean {
+  if (!text || typeof text !== "string") {
+    return false;
+  }
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{")) {
+    return false;
+  }
+  if (extractFirstContentString(trimmed) !== undefined) {
+    return true;
+  }
+  return STRUCTURED_JSON_REPLY_PREFIX_RE.test(trimmed);
+}
+
+/**
+ * If the reply text is a JSON object (e.g. {"message": "Hello"}), extract a readable string
+ * so we don't send raw JSON to Discord or other channels. Returns the original string if not
+ * JSON or no known key is present. When the reply is truncated (invalid JSON), or when
+ * JSON appears anywhere in the string, tries to extract the first "content" (or 'content')
+ * string so we still send plain text instead of the raw blob.
+ */
+export function extractReplyTextFromPossibleJson(text: string): string {
+  if (!text || typeof text !== "string") {
+    return text;
+  }
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return text;
+  }
+  // Try full parse when it looks like a JSON object.
+  if (trimmed.charAt(0) === "{") {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const obj = parsed as Record<string, unknown>;
+        const keys = ["message", "text", "content", "response", "reply", "answer"];
+        for (const key of keys) {
+          const val = obj[key];
+          if (typeof val === "string" && val.trim()) {
+            return val.trim();
+          }
+        }
+      }
+    } catch {
+      // Fall through to regex extraction.
+    }
+  }
+  // Truncated JSON, or JSON embedded in other text: extract first content string.
+  const extracted = extractFirstContentString(trimmed);
+  if (extracted !== undefined) {
+    return extracted;
+  }
+  return text;
 }
 
 export function isRateLimitAssistantError(msg: AssistantMessage | undefined): boolean {
