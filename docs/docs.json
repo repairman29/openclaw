@@ -1342,7 +1342,7 @@
               },
               {
                 "group": "Project",
-                "pages": ["reference/credits"]
+                "pages": ["reference/DOCUMENTATION_INDEX", "reference/credits"]
               },
               {
                 "group": "Release notes",

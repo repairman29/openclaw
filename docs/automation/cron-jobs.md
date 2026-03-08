@@ -652,8 +652,6 @@ openclaw system event --mode now --text "Next heartbeat: check battery."
 - `cron.run` (force or due), `cron.runs`
   For immediate system events without a job, use [`openclaw system event`](/cli/system).
 
-## Troubleshooting
-
 ## Monitoring cron in Control UI
 
 Use the browser Control UI overview to quickly confirm scheduler health without reading raw logs:
@@ -666,6 +664,8 @@ Use the browser Control UI overview to quickly confirm scheduler health without 
 
 These fields are read from `cron.status`, `cron.list`, and `cron.runs` snapshots exposed by the Gateway.
 If all enabled jobs show stale next-run timestamps, repeated timeout failures, or no recent runs, treat that as a scheduler health issue and continue with the checks below.
+
+## Troubleshooting
 
 ### “Nothing runs”
 
