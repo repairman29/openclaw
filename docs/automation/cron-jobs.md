@@ -654,6 +654,19 @@ openclaw system event --mode now --text "Next heartbeat: check battery."
 
 ## Troubleshooting
 
+## Monitoring cron in Control UI
+
+Use the browser Control UI overview to quickly confirm scheduler health without reading raw logs:
+
+- Gateway health card: confirms websocket/gateway connectivity and surfaces active errors.
+- Cron reliability card: shows enabled-job success ratio and next-run summary.
+- Timeout risk card: highlights timeout-like failures and jobs with risky timeout settings.
+- Cron reliability table: per-job status, delivery result, next run, and last error.
+- Live delivery KPIs: 60-minute delivery success rate, run volume, and active/session traffic.
+
+These fields are read from `cron.status`, `cron.list`, and `cron.runs` snapshots exposed by the Gateway.
+If all enabled jobs show stale next-run timestamps, repeated timeout failures, or no recent runs, treat that as a scheduler health issue and continue with the checks below.
+
 ### “Nothing runs”
 
 - Check cron is enabled: `cron.enabled` and `OPENCLAW_SKIP_CRON`.

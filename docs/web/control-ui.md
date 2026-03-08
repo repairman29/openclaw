@@ -100,6 +100,15 @@ Cron jobs panel notes:
 - Set `cron.webhookToken` to send a dedicated bearer token, if omitted the webhook is sent without an auth header.
 - Deprecated fallback: stored legacy jobs with `notify: true` can still use `cron.webhook` until migrated.
 
+Overview health panel (cron-focused):
+
+- Gateway health: healthy/degraded/offline status from live connection state.
+- Cron reliability: percent of enabled jobs in ok state, with next scheduled run context.
+- Timeout risk: low/medium/high signal based on timeout-like run errors and job timeout configuration.
+- Discord delivery: configured/running/probe/outbound activity signal for delivery confidence.
+- Cron reliability table: one row per job with status chip, delivery mode result, next run, and latest error.
+- Live delivery + dogfooding KPIs: 60-minute delivery success, observed run count, and active/session usage traffic.
+
 ## Chat behavior
 
 - `chat.send` is **non-blocking**: it acks immediately with `{ runId, status: "started" }` and the response streams via `chat` events.
