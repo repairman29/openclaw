@@ -43,8 +43,10 @@ import { cacheSticker, describeStickerImage } from "./sticker-cache.js";
 
 const EMPTY_RESPONSE_FALLBACK = "No response generated. Please try again.";
 
-/** Minimum chars before sending first streaming message (improves push notification UX) */
-const DRAFT_MIN_INITIAL_CHARS = 30;
+/** Minimum chars before sending first streaming message (improves push notification quality).
+ *  Higher values reduce message flickering and provide a more complete initial preview.
+ */
+const DRAFT_MIN_INITIAL_CHARS = 80;
 
 async function resolveStickerVisionSupport(cfg: OpenClawConfig, agentId: string) {
   try {

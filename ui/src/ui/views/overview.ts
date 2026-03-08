@@ -6,6 +6,13 @@ import { formatRelativeTimestamp, formatDurationHuman } from "../format.ts";
 import type { GatewayHelloOk } from "../gateway.ts";
 import { formatNextRun } from "../presenter.ts";
 import type { UiSettings } from "../storage.ts";
+import type {
+  ChannelsStatusSnapshot,
+  CronJob,
+  CronRunLogEntry,
+  DiscordStatus,
+  GatewaySessionRow,
+} from "../types.ts";
 import { shouldShowPairingHint } from "./overview-hints.ts";
 
 export type OverviewProps = {
@@ -19,6 +26,10 @@ export type OverviewProps = {
   sessionsCount: number | null;
   cronEnabled: boolean | null;
   cronNext: number | null;
+  cronJobs: CronJob[];
+  cronRuns: CronRunLogEntry[];
+  sessionRows: GatewaySessionRow[];
+  channelsSnapshot: ChannelsStatusSnapshot | null;
   lastChannelsRefresh: number | null;
   onSettingsChange: (next: UiSettings) => void;
   onPasswordChange: (next: string) => void;
@@ -28,6 +39,7 @@ export type OverviewProps = {
 };
 
 export function renderOverview(props: OverviewProps) {
+  const nowMs = Date.now();
   const snapshot = props.hello?.snapshot as
     | {
         uptimeMs?: number;
@@ -192,6 +204,161 @@ export function renderOverview(props: OverviewProps) {
   })();
 
   const currentLocale = i18n.getLocale();
+  const channels = props.channelsSnapshot?.channels ?? null;
+  const discord = (channels?.discord ?? null) as DiscordStatus | null;
+  const discordAccounts = props.channelsSnapshot?.channelAccounts?.discord ?? [];
+  const latestDiscordOutboundAt =
+    discordAccounts
+      .map((account) =>
+        typeof account.lastOutboundAt === "number" ? account.lastOutboundAt : null,
+      )
+      .filter((value): value is number => value !== null)
+      .toSorted((a, b) => b - a)[0] ?? null;
+  const latestRunByJob = new Map<string, CronRunLogEntry>();
+  for (const run of props.cronRuns) {
+    const existing = latestRunByJob.get(run.jobId);
+    if (!existing || run.ts > existing.ts) {
+      latestRunByJob.set(run.jobId, run);
+    }
+  }
+  const enabledCronJobs = props.cronJobs.filter((job) => job.enabled);
+  const reliableCronJobs = enabledCronJobs.filter((job) => job.state?.lastStatus === "ok");
+  const cronReliabilityPct =
+    enabledCronJobs.length > 0
+      ? Math.round((reliableCronJobs.length / enabledCronJobs.length) * 100)
+      : null;
+  const timeoutErrorCount = props.cronRuns.filter((run) => {
+    const message = [run.error, run.summary].filter(Boolean).join(" ").toLowerCase();
+    return message.includes("timeout") || message.includes("timed out");
+  }).length;
+  const timeoutRiskFromJobs = enabledCronJobs.filter((job) => {
+    if (job.payload.kind !== "agentTurn") {
+      return false;
+    }
+    return typeof job.payload.timeoutSeconds !== "number" || job.payload.timeoutSeconds <= 30;
+  }).length;
+  const timeoutRiskLabel =
+    timeoutErrorCount > 0 ||
+    timeoutRiskFromJobs > Math.max(1, Math.floor(enabledCronJobs.length / 2))
+      ? "High"
+      : timeoutRiskFromJobs > 0
+        ? "Medium"
+        : "Low";
+  const discordDeliveryLabel = (() => {
+    if (!discord?.configured) {
+      return "Not configured";
+    }
+    if (!discord.running) {
+      return "Stopped";
+    }
+    if (discord.probe && !discord.probe.ok) {
+      return "Probe failed";
+    }
+    if (latestDiscordOutboundAt && nowMs - latestDiscordOutboundAt <= 6 * 60 * 60 * 1000) {
+      return "Active";
+    }
+    return "Idle";
+  })();
+  const recentRuns = props.cronRuns.filter((run) => nowMs - run.ts <= 60 * 60 * 1000);
+  const runs24h = props.cronRuns.filter((run) => nowMs - run.ts <= 24 * 60 * 60 * 1000);
+  const successfulRuns24h = runs24h.filter((run) => run.status === "ok");
+  const recentDeliveries = recentRuns.filter(
+    (run) =>
+      run.deliveryStatus &&
+      run.deliveryStatus !== "not-requested" &&
+      run.deliveryStatus !== "unknown",
+  );
+  const deliveries24h = runs24h.filter(
+    (run) =>
+      run.deliveryStatus &&
+      run.deliveryStatus !== "not-requested" &&
+      run.deliveryStatus !== "unknown",
+  );
+  const delivered24h = deliveries24h.filter((run) => run.deliveryStatus === "delivered");
+  const recentDelivered = recentDeliveries.filter((run) => run.deliveryStatus === "delivered");
+  const recentDeliveryRate =
+    recentDeliveries.length > 0
+      ? `${Math.round((recentDelivered.length / recentDeliveries.length) * 100)}%`
+      : t("common.na");
+  const dogfoodingTraffic = `${props.presenceCount} active / ${props.sessionsCount ?? t("common.na")} sessions`;
+  const activeSessions24h = props.sessionRows.filter(
+    (session) =>
+      typeof session.updatedAt === "number" && nowMs - session.updatedAt <= 24 * 60 * 60 * 1000,
+  );
+  const cronSessions24h = activeSessions24h.filter((session) => session.key.includes("cron:"));
+  const humanSessions24h = activeSessions24h.filter((session) => !session.key.includes("cron:"));
+  const cronSuccess24hPct =
+    runs24h.length > 0 ? Math.round((successfulRuns24h.length / runs24h.length) * 100) : null;
+  const deliverySuccess24hPct =
+    deliveries24h.length > 0
+      ? Math.round((delivered24h.length / deliveries24h.length) * 100)
+      : null;
+  const discordProbeFresh =
+    typeof discord?.lastProbeAt === "number" && nowMs - discord.lastProbeAt <= 20 * 60 * 1000;
+  const opsGuardrails = [
+    {
+      metric: "Cron success (24h)",
+      target: ">=95%",
+      current: cronSuccess24hPct == null ? t("common.na") : `${cronSuccess24hPct}%`,
+      status:
+        cronSuccess24hPct == null
+          ? "warn"
+          : cronSuccess24hPct >= 95
+            ? "ok"
+            : cronSuccess24hPct >= 85
+              ? "warn"
+              : "danger",
+    },
+    {
+      metric: "Delivery success (24h)",
+      target: ">=98%",
+      current: deliverySuccess24hPct == null ? t("common.na") : `${deliverySuccess24hPct}%`,
+      status:
+        deliverySuccess24hPct == null
+          ? "warn"
+          : deliverySuccess24hPct >= 98
+            ? "ok"
+            : deliverySuccess24hPct >= 90
+              ? "warn"
+              : "danger",
+    },
+    {
+      metric: "Discord probe freshness",
+      target: "<=20m",
+      current: discord?.lastProbeAt ? formatRelativeTimestamp(discord.lastProbeAt) : t("common.na"),
+      status: discord?.configured ? (discordProbeFresh ? "ok" : "warn") : "warn",
+    },
+    {
+      metric: "Dogfooding human sessions (24h)",
+      target: ">=5",
+      current: `${humanSessions24h.length}`,
+      status:
+        humanSessions24h.length >= 5 ? "ok" : humanSessions24h.length >= 2 ? "warn" : "danger",
+    },
+  ] as const;
+  const priorityAlerts: string[] = [];
+  if (!props.connected) {
+    priorityAlerts.push("Gateway is offline.");
+  }
+  if (props.cronEnabled === false) {
+    priorityAlerts.push("Cron is disabled.");
+  }
+  if (enabledCronJobs.length === 0) {
+    priorityAlerts.push("No enabled cron jobs are configured.");
+  }
+  if (deliverySuccess24hPct != null && deliverySuccess24hPct < 90) {
+    priorityAlerts.push("Delivery success is below 90% over the last 24h.");
+  }
+  if (timeoutRiskLabel === "High") {
+    priorityAlerts.push("Timeout risk is high; raise timeout seconds for long-running jobs.");
+  }
+  if (discord?.configured && !discord.running) {
+    priorityAlerts.push("Discord is configured but not running.");
+  }
+  const tileToneForReliability =
+    cronReliabilityPct == null ? "warn" : cronReliabilityPct >= 90 ? "ok" : "warn";
+  const tileToneForTimeout = timeoutRiskLabel === "Low" ? "ok" : "warn";
+  const tileToneForDiscord = discordDeliveryLabel === "Active" ? "ok" : "warn";
 
   return html`
     <section class="grid grid-cols-2">
@@ -314,6 +481,154 @@ export function renderOverview(props: OverviewProps) {
                 </div>
               `
         }
+      </div>
+    </section>
+
+    <section class="grid" style="grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 18px;">
+      <div class="card stat-card">
+        <div class="stat-label">Gateway health</div>
+        <div class="stat-value ${props.connected && !props.lastError ? "ok" : "warn"}">
+          ${props.connected ? (props.lastError ? "Degraded" : "Healthy") : "Offline"}
+        </div>
+        <div class="muted">${props.lastError ? props.lastError : "No active gateway errors."}</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-label">Cron reliability</div>
+        <div class="stat-value ${tileToneForReliability}">
+          ${
+            cronReliabilityPct == null
+              ? t("common.na")
+              : `${cronReliabilityPct}% (${reliableCronJobs.length}/${enabledCronJobs.length})`
+          }
+        </div>
+        <div class="muted">${t("overview.stats.cronNext", { time: formatNextRun(props.cronNext) })}</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-label">Timeout risk</div>
+        <div class="stat-value ${tileToneForTimeout}">${timeoutRiskLabel}</div>
+        <div class="muted">
+          ${timeoutErrorCount} timeout-like failures, ${timeoutRiskFromJobs} jobs need safer limits.
+        </div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-label">Discord delivery</div>
+        <div class="stat-value ${tileToneForDiscord}">${discordDeliveryLabel}</div>
+        <div class="muted">
+          Last outbound: ${latestDiscordOutboundAt ? formatRelativeTimestamp(latestDiscordOutboundAt) : t("common.na")}
+        </div>
+      </div>
+    </section>
+
+    ${
+      priorityAlerts.length > 0
+        ? html`<section class="card" style="margin-top: 18px;">
+            <div class="card-title">Priority alerts</div>
+            <div class="card-sub">Address these first to stabilize delivery.</div>
+            <div class="note-grid" style="margin-top: 12px;">
+              ${priorityAlerts.map(
+                (alert) =>
+                  html`<div class="callout danger"><strong>Action:</strong> ${alert}</div>`,
+              )}
+            </div>
+          </section>`
+        : html`
+            <section class="card" style="margin-top: 18px">
+              <div class="card-title">Priority alerts</div>
+              <div class="callout" style="margin-top: 12px">No critical alerts right now.</div>
+            </section>
+          `
+    }
+
+    <section class="card" style="margin-top: 18px;">
+      <div class="card-title">Cron reliability table</div>
+      <div class="card-sub">Per-job status, latest delivery signal, next run, and most recent error.</div>
+      <div class="table" style="margin-top: 12px;">
+        <div class="table-head">
+          <div>Job</div>
+          <div>Status</div>
+          <div>Delivery</div>
+          <div>Next run</div>
+          <div>Error</div>
+        </div>
+        ${
+          props.cronJobs.length === 0
+            ? html`
+                <div class="muted">No cron jobs found.</div>
+              `
+            : props.cronJobs.map((job) => {
+                const latestRun = latestRunByJob.get(job.id);
+                const statusLabel = !job.enabled
+                  ? "disabled"
+                  : (job.state?.lastStatus ?? latestRun?.status ?? "unknown");
+                const statusClass =
+                  statusLabel === "ok"
+                    ? "chip-ok"
+                    : statusLabel === "error"
+                      ? "chip-danger"
+                      : "chip-warn";
+                const deliveryLabel =
+                  latestRun?.deliveryStatus ??
+                  (job.delivery?.mode === "none" || !job.delivery ? "not-requested" : "unknown");
+                const errorMessage =
+                  job.state?.lastError ?? latestRun?.error ?? latestRun?.deliveryError ?? "";
+                return html`
+                  <div class="table-row">
+                    <div class="mono">${job.name || job.id}</div>
+                    <div><span class="chip ${statusClass}">${statusLabel}</span></div>
+                    <div>${deliveryLabel}</div>
+                    <div>${formatNextRun(job.state?.nextRunAtMs ?? null)}</div>
+                    <div class="muted">${errorMessage || "—"}</div>
+                  </div>
+                `;
+              })
+        }
+      </div>
+    </section>
+
+    <section class="card" style="margin-top: 18px;">
+      <div class="card-title">Live delivery + dogfooding KPIs</div>
+      <div class="card-sub">Rolling 60-minute delivery outcomes plus operator usage signals.</div>
+      <div class="grid grid-cols-3" style="margin-top: 14px;">
+        <div class="stat">
+          <div class="stat-label">Delivery success (60m)</div>
+          <div class="stat-value">${recentDeliveryRate}</div>
+          <div class="muted">${recentDelivered.length}/${recentDeliveries.length || 0} delivered</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Runs observed (60m)</div>
+          <div class="stat-value">${recentRuns.length}</div>
+          <div class="muted">Across ${enabledCronJobs.length} enabled jobs</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Dogfooding traffic</div>
+          <div class="stat-value">${props.presenceCount}</div>
+          <div class="muted">${dogfoodingTraffic}</div>
+        </div>
+      </div>
+      <div class="table" style="margin-top: 14px;">
+        <div class="table-head">
+          <div>Guardrail</div>
+          <div>Target</div>
+          <div>Current</div>
+          <div>Status</div>
+        </div>
+        ${opsGuardrails.map(
+          (entry) => html`
+            <div class="table-row">
+              <div>${entry.metric}</div>
+              <div class="mono">${entry.target}</div>
+              <div>${entry.current}</div>
+              <div>
+                <span class="chip ${entry.status === "ok" ? "chip-ok" : entry.status === "danger" ? "chip-danger" : "chip-warn"}">
+                  ${entry.status}
+                </span>
+              </div>
+            </div>
+          `,
+        )}
+      </div>
+      <div class="muted" style="margin-top: 12px;">
+        Dogfooding split (24h): ${humanSessions24h.length} human sessions, ${cronSessions24h.length} cron sessions.
       </div>
     </section>
 

@@ -186,7 +186,7 @@ describe("dispatchTelegramMessage draft streaming", () => {
       expect.objectContaining({
         chatId: 123,
         thread: { id: 777, scope: "dm" },
-        minInitialChars: 30,
+        minInitialChars: 80,
       }),
     );
     expect(draftStream.update).toHaveBeenCalledWith("Hello");
@@ -207,7 +207,7 @@ describe("dispatchTelegramMessage draft streaming", () => {
     expect(draftStream.clear).toHaveBeenCalledTimes(1);
   });
 
-  it("uses 30-char preview debounce for legacy block stream mode", async () => {
+  it("uses 80-char preview debounce for legacy block stream mode", async () => {
     const draftStream = createDraftStream();
     createTelegramDraftStream.mockReturnValue(draftStream);
     dispatchReplyWithBufferedBlockDispatcher.mockImplementation(
@@ -223,7 +223,7 @@ describe("dispatchTelegramMessage draft streaming", () => {
 
     expect(createTelegramDraftStream).toHaveBeenCalledWith(
       expect.objectContaining({
-        minInitialChars: 30,
+        minInitialChars: 80,
       }),
     );
   });
