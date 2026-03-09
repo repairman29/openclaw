@@ -12,9 +12,15 @@ import {
 /**
  * Pick the primary non-internal IPv4 address (LAN IP).
  * Prefers common interface names (en0, eth0) then falls back to any external IPv4.
+ * Returns undefined when network interfaces are unavailable (e.g. sandbox).
  */
 export function pickPrimaryLanIPv4(): string | undefined {
-  const nets = os.networkInterfaces();
+  let nets: NodeJS.Dict<os.NetworkInterfaceInfo[]>;
+  try {
+    nets = os.networkInterfaces() ?? {};
+  } catch {
+    return undefined;
+  }
   const preferredNames = ["en0", "eth0"];
   for (const name of preferredNames) {
     const list = nets[name];

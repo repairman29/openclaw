@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { listAgentIds } from "../../agents/agent-scope.js";
 import type { AgentInternalEvent } from "../../agents/internal-events.js";
+import { resolveAgentTimeoutMs } from "../../agents/timeout.js";
 import { buildBareSessionResetPrompt } from "../../auto-reply/reply/session-reset-prompt.js";
 import { agentCommandFromIngress } from "../../commands/agent.js";
 import { loadConfig } from "../../config/config.js";
@@ -764,7 +765,7 @@ export const agentHandlers: GatewayRequestHandlers = {
     const timeoutMs =
       typeof p.timeoutMs === "number" && Number.isFinite(p.timeoutMs)
         ? Math.max(0, Math.floor(p.timeoutMs))
-        : 30_000;
+        : Math.max(60_000, resolveAgentTimeoutMs({ cfg: loadConfig(), minMs: 60_000 }));
     const hasActiveChatRun = context.chatAbortControllers.has(runId);
 
     const cachedGatewaySnapshot = readTerminalSnapshotFromGatewayDedupe({

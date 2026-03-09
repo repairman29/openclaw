@@ -76,7 +76,7 @@ describe("agents bind/unbind commands", () => {
 
     expect(writeConfigFileMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        bindings: [{ agentId: "main", match: { channel: "telegram" } }],
+        bindings: [{ agentId: "main", match: { channel: "telegram" }, type: "route" }],
       }),
     );
     expect(runtime.exit).not.toHaveBeenCalled();
@@ -92,7 +92,9 @@ describe("agents bind/unbind commands", () => {
 
     expect(writeConfigFileMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        bindings: [{ agentId: "main", match: { channel: "matrix-js", accountId: "main" } }],
+        bindings: [
+          { agentId: "main", match: { channel: "matrix-js", accountId: "main" }, type: "route" },
+        ],
       }),
     );
     expect(runtime.exit).not.toHaveBeenCalled();
