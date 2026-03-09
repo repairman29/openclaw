@@ -173,6 +173,23 @@ describe("extractReplyTextFromPossibleJson", () => {
       extractReplyTextFromPossibleJson('Prefix: {"type":"message","content":"hi","context":{}}'),
     ).toBe("hi");
   });
+
+  it("unwraps event-shaped payload (name + context/parameters) to short user-facing text", () => {
+    expect(extractReplyTextFromPossibleJson('{"name":"ready now","context":{}}')).toBe(
+      "ready now.",
+    );
+    const payload = JSON.stringify({
+      name: "ready now",
+      context: {
+        metadata: { session_status: { model: "default" } },
+        parameters: {
+          lines: 1,
+          path: "/Users/jeffadkins/.openclaw/workspace-maclawd/2026-03-08.md",
+        },
+      },
+    });
+    expect(extractReplyTextFromPossibleJson(payload)).toBe("ready now.");
+  });
 });
 
 describe("looksLikeStructuredAssistantJsonReply", () => {
@@ -180,6 +197,14 @@ describe("looksLikeStructuredAssistantJsonReply", () => {
     expect(looksLikeStructuredAssistantJsonReply('{"type":"message","content":"hi"}')).toBe(true);
     expect(looksLikeStructuredAssistantJsonReply('{"type":"message","conte')).toBe(true);
     expect(looksLikeStructuredAssistantJsonReply("{'content':'hello'}")).toBe(true);
+  });
+
+  it("detects event-shaped payload with name and context", () => {
+    expect(
+      looksLikeStructuredAssistantJsonReply(
+        '{"name": "ready now", "context":{"metadata":{"session_status":{"model":"default"}}}}',
+      ),
+    ).toBe(true);
   });
 
   it("does not flag normal prose", () => {

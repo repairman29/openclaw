@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install Maclawd keep-online: gateway LaunchAgent + watchdog for MLX/memory.
-# Run from repo root: ./scripts/maclawd-install-keepalive.sh
+# ONE build: this repo. Run from repo root: pnpm build && ./scripts/maclawd-install-keepalive.sh
 
 set -euo pipefail
 
@@ -9,12 +9,16 @@ STATE_DIR="${OPENCLAW_MACLAWD_STATE:-${HOME}/.openclaw-maclawd}"
 CONFIG_PATH="${STATE_DIR}/openclaw.json"
 LOG_DIR="${STATE_DIR}/logs"
 PATH="${ROOT_DIR}/node_modules/.bin:${PATH}"
-OPENCLAW_BIN="${OPENCLAW_MACLAWD_OPENCLAW_BIN:-openclaw}"
-OPENCLAW_CMD=()
-if command -v "${OPENCLAW_BIN}" >/dev/null 2>&1; then
-  OPENCLAW_CMD=("${OPENCLAW_BIN}" "--profile" "maclawd")
+
+# Always use repo build so the LaunchAgent plist points at this repo (one source of truth).
+if [[ -f "${ROOT_DIR}/dist/index.js" ]]; then
+  OPENCLAW_CMD=("node" "${ROOT_DIR}/dist/index.js" "--profile" "maclawd")
 else
   OPENCLAW_CMD=("node" "${ROOT_DIR}/openclaw.mjs" "--profile" "maclawd")
+  if [[ ! -f "${ROOT_DIR}/openclaw.mjs" ]]; then
+    echo "ERROR: No dist/index.js or openclaw.mjs. Run: pnpm build" >&2
+    exit 1
+  fi
 fi
 
 GATEWAY_LABEL="ai.openclaw.maclawd"
@@ -25,14 +29,14 @@ WATCHDOG_INTERVAL="${OPENCLAW_MACLAWD_WATCHDOG_INTERVAL:-900}"
 SESSIONS_CLEANUP_INTERVAL="${OPENCLAW_MACLAWD_SESSIONS_CLEANUP_INTERVAL:-21600}"
 CRON_TUNE_INTERVAL="${OPENCLAW_MACLAWD_CRON_TUNE_INTERVAL:-3600}"
 CONFIG_TUNE_INTERVAL="${OPENCLAW_MACLAWD_CONFIG_TUNE_INTERVAL:-3600}"
-PREFERRED_AGENT_MODEL="${OPENCLAW_MACLAWD_PREFERRED_AGENT_MODEL:-ollama/llama3.2:3b}"
+PREFERRED_AGENT_MODEL="${OPENCLAW_MACLAWD_PREFERRED_AGENT_MODEL:-openai/mlx-community/Qwen2.5-7B-Instruct-4bit}"
 PREFERRED_CRON_MODEL="${OPENCLAW_MACLAWD_PREFERRED_CRON_MODEL:-ollama/llama3.2:1b}"
 CRON_TIMEOUT_CAP="${OPENCLAW_MACLAWD_CRON_TIMEOUT_CAP:-90}"
 CRON_STUCK_ERRORS="${OPENCLAW_MACLAWD_CRON_STUCK_ERRORS:-2}"
-MLX_WORKHORSE_ENABLED="${OPENCLAW_MACLAWD_ENABLE_WORKHORSE:-0}"
+MLX_WORKHORSE_ENABLED="${OPENCLAW_MACLAWD_ENABLE_WORKHORSE:-1}"
 MLX_SCOUT_ENABLED="${OPENCLAW_MACLAWD_ENABLE_SCOUT:-0}"
 MLX_TRIAGE_ENABLED="${OPENCLAW_MACLAWD_ENABLE_TRIAGE:-0}"
-MLX_WORKHORSE_MODEL="${MLX_WORKHORSE_MODEL:-mlx-community/Qwen2.5-3B-Instruct-4bit}"
+MLX_WORKHORSE_MODEL="${MLX_WORKHORSE_MODEL:-mlx-community/Qwen2.5-7B-Instruct-4bit}"
 MLX_SCOUT_MODEL="${MLX_SCOUT_MODEL:-mlx-community/Qwen2.5-3B-Instruct-4bit}"
 MLX_TRIAGE_MODEL="${MLX_TRIAGE_MODEL:-mlx-community/Qwen2.5-3B-Instruct-4bit}"
 MLX_MAX_TOKENS="${OPENCLAW_MACLAWD_MLX_MAX_TOKENS:-256}"

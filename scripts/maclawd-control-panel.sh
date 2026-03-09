@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 # Maclawd stack control: start, stop, restart, status.
-# Run from repo root: ./scripts/maclawd-control-panel.sh start|stop|restart|status
+# ONE build: this repo. Run from repo root: ./scripts/maclawd-control-panel.sh start|stop|restart|status
+#
+# Gateway and cron:
+# - Gateway runs via LaunchAgent ai.openclaw.maclawd (or in foreground via start_gateway).
+#   It binds to port 18789 and starts the cron service inside the same process.
+# - Cron jobs are stored at ${STATE_DIR}/cron/jobs.json (OPENCLAW_STATE_DIR/cron/jobs.json).
+#   The gateway loads this file on start; use "openclaw cron" with OPENCLAW_PROFILE=maclawd
+#   to add/list/run jobs. Watchdog runs "control-panel start" periodically and can tune
+#   cron job timeouts (maybe_tune_cron_jobs) when OPENCLAW_MACLAWD_ENABLE_CRON_TUNE=1.
+# - To manage cron from CLI: OPENCLAW_PROFILE=maclawd OPENCLAW_CONFIG_PATH=$STATE_DIR/openclaw.json \
+#   OPENCLAW_STATE_DIR=$STATE_DIR pnpm openclaw cron list
 
 set -euo pipefail
 
@@ -10,10 +20,10 @@ CONFIG_PATH="${STATE_DIR}/openclaw.json"
 CRON_JOBS_PATH="${STATE_DIR}/cron/jobs.json"
 LOG_DIR="${STATE_DIR}/logs"
 PATH="${ROOT_DIR}/node_modules/.bin:${PATH}"
-OPENCLAW_BIN="${OPENCLAW_MACLAWD_OPENCLAW_BIN:-openclaw}"
-OPENCLAW_CMD=()
-if command -v "${OPENCLAW_BIN}" >/dev/null 2>&1; then
-  OPENCLAW_CMD=("${OPENCLAW_BIN}" "--profile" "maclawd")
+
+# Use repo build only (same as maclawd-install-keepalive.sh).
+if [[ -f "${ROOT_DIR}/dist/index.js" ]]; then
+  OPENCLAW_CMD=("node" "${ROOT_DIR}/dist/index.js" "--profile" "maclawd")
 else
   OPENCLAW_CMD=("node" "${ROOT_DIR}/openclaw.mjs" "--profile" "maclawd")
 fi
@@ -23,8 +33,8 @@ PIDS=(gateway.pid memory.pid mlx-workhorse.pid mlx-scout.pid mlx-triage.pid)
 
 # MLX server config: port model
 MLX_WORKHORSE_PORT=8000
-MLX_WORKHORSE_MODEL="${MLX_WORKHORSE_MODEL:-mlx-community/Qwen2.5-3B-Instruct-4bit}"
-MLX_WORKHORSE_ENABLED="${OPENCLAW_MACLAWD_ENABLE_WORKHORSE:-0}"
+MLX_WORKHORSE_MODEL="${MLX_WORKHORSE_MODEL:-mlx-community/Qwen2.5-7B-Instruct-4bit}"
+MLX_WORKHORSE_ENABLED="${OPENCLAW_MACLAWD_ENABLE_WORKHORSE:-1}"
 MLX_SCOUT_PORT=8001
 MLX_SCOUT_MODEL="${MLX_SCOUT_MODEL:-mlx-community/Qwen2.5-3B-Instruct-4bit}"
 MLX_SCOUT_ENABLED="${OPENCLAW_MACLAWD_ENABLE_SCOUT:-0}"
@@ -46,7 +56,7 @@ CONFIG_TUNE_INTERVAL="${OPENCLAW_MACLAWD_CONFIG_TUNE_INTERVAL:-3600}"
 CONFIG_TUNE_ENABLED="${OPENCLAW_MACLAWD_ENABLE_CONFIG_TUNE:-1}"
 FORCE_FINAL_STREAMING="${OPENCLAW_MACLAWD_FORCE_FINAL_STREAMING:-1}"
 DISABLE_MODEL_FALLBACKS="${OPENCLAW_MACLAWD_DISABLE_MODEL_FALLBACKS:-1}"
-PREFERRED_AGENT_MODEL="${OPENCLAW_MACLAWD_PREFERRED_AGENT_MODEL:-ollama/llama3.2:3b}"
+PREFERRED_AGENT_MODEL="${OPENCLAW_MACLAWD_PREFERRED_AGENT_MODEL:-openai/mlx-community/Qwen2.5-7B-Instruct-4bit}"
 PREFERRED_CRON_MODEL="${OPENCLAW_MACLAWD_PREFERRED_CRON_MODEL:-ollama/llama3.2:1b}"
 FORCE_AGENT_MODEL="${OPENCLAW_MACLAWD_FORCE_AGENT_MODEL:-1}"
 CRON_TIMEOUT_CAP="${OPENCLAW_MACLAWD_CRON_TIMEOUT_CAP:-90}"
@@ -159,7 +169,7 @@ const fs = require("node:fs");
 
 const configPath = process.argv[2];
 const preferredAgentModel =
-  process.env.OPENCLAW_MACLAWD_PREFERRED_AGENT_MODEL || "ollama/llama3.2:3b";
+  process.env.OPENCLAW_MACLAWD_PREFERRED_AGENT_MODEL || "openai/mlx-community/Qwen2.5-7B-Instruct-4bit";
 const forceStreamingOff = /^(1|true|yes|on)$/i.test(
   process.env.OPENCLAW_MACLAWD_FORCE_FINAL_STREAMING || "1",
 );
@@ -196,17 +206,15 @@ if (defaults.maxConcurrent !== 1) {
 }
 const model = ensureObject(defaults, "model");
 const currentPrimary = typeof model.primary === "string" ? model.primary.trim() : "";
-if (
-  currentPrimary.length === 0 ||
-  currentPrimary.startsWith("mlx-community/") ||
-  currentPrimary.startsWith("openai/mlx-community/") ||
-  currentPrimary.startsWith("mlx-triage/") ||
-  currentPrimary.startsWith("mlx-scout/") ||
-  currentPrimary.startsWith("mlx-workhorse/")
-) {
+// Only set primary when empty or when forceAgentModel and different from preferred.
+// Do not overwrite a valid MLX workhorse primary (we prefer MLX for dogfooding).
+const isMlxWorkhorse =
+  /^openai\/mlx-community\/Qwen2\.5-(7B|3B)-Instruct-4bit$/.test(currentPrimary) ||
+  currentPrimary.startsWith("mlx-workhorse/");
+if (currentPrimary.length === 0) {
   model.primary = preferredAgentModel;
   changed = true;
-} else if (forceAgentModel && currentPrimary !== preferredAgentModel) {
+} else if (forceAgentModel && currentPrimary !== preferredAgentModel && !isMlxWorkhorse) {
   model.primary = preferredAgentModel;
   changed = true;
 }

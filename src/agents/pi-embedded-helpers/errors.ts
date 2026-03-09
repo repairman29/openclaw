@@ -759,6 +759,16 @@ export function extractReplyTextFromPossibleJson(text: string): string {
             return val.trim();
           }
         }
+        // Event/tool-result shape: {"name": "ready now", "context": {...}} (or "parameters" at top level).
+        // Don't send raw JSON to Discord; use the "name" value as short user-facing text.
+        const nameVal = obj["name"];
+        if (typeof nameVal === "string" && nameVal.trim() && nameVal.length <= 120) {
+          const hasContextOrParams = "context" in obj || "parameters" in obj;
+          if (hasContextOrParams) {
+            const line = nameVal.trim();
+            return line.endsWith(".") ? line : `${line}.`;
+          }
+        }
       }
     } catch {
       // Fall through to regex extraction.
