@@ -1,0 +1,75 @@
+# Build and test the Chump rust-agent (Rust + AxonerAI).
+# Runs on push/PR when rust-agent/ or .github/workflows/rust-agent.yml changes.
+name: rust-agent
+
+on:
+  push:
+    branches: [main]
+    paths: ['rust-agent/**', '.github/workflows/rust-agent.yml']
+  pull_request:
+    paths: ['rust-agent/**', '.github/workflows/rust-agent.yml']
+
+concurrency:
+  group: rust-agent-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            rust-agent/target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: rust-agent-${{ runner.os }}-${{ hashFiles('rust-agent/Cargo.lock') }}
+          restore-keys: rust-agent-${{ runner.os }}-
+
+      - name: Build
+        working-directory: rust-agent
+        run: cargo build --release
+
+      - name: Test
+        working-directory: rust-agent
+        run: cargo test
+
+      - name: Clippy
+        working-directory: rust-agent
+        run: cargo clippy --release -- -D warnings
+
+  build-and-test-inprocess-embed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            rust-agent/target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: rust-agent-inprocess-${{ runner.os }}-${{ hashFiles('rust-agent/Cargo.lock') }}
+          restore-keys: rust-agent-inprocess-${{ runner.os }}-
+
+      - name: Build with inprocess-embed
+        working-directory: rust-agent
+        run: cargo build --release --features inprocess-embed
+
+      - name: Test with inprocess-embed
+        working-directory: rust-agent
+        run: cargo test --features inprocess-embed
