@@ -73,3 +73,12 @@ jobs:
       - name: Test with inprocess-embed
         working-directory: rust-agent
         run: cargo test --features inprocess-embed
+
+  build-chump-menu:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Chump Menu
+        run: ./rust-agent/scripts/build-chump-menu.sh

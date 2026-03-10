@@ -22,13 +22,6 @@ jobs:
           curl -sSf https://wasmtime.dev/install.sh | bash
           echo "$HOME/.wasmtime/bin" >> $GITHUB_PATH
 
-      - name: Build WASM calculator
-        working-directory: rust-agent/wasm/calc-wasm
-        run: |
-          cargo build --release --target wasm32-wasi --bin calc-wasm
-          mkdir -p ..
-          cp target/wasm32-wasi/release/calc_wasm.wasm ../calculator.wasm
-
       - name: Cache Cargo
         uses: actions/cache@v4
         with:
@@ -39,6 +32,13 @@ jobs:
             ~/.cargo/git
           key: rust-agent-wasm-${{ runner.os }}-${{ hashFiles('rust-agent/Cargo.lock', 'rust-agent/wasm/calc-wasm/Cargo.lock') }}
           restore-keys: rust-agent-wasm-${{ runner.os }}-
+
+      - name: Build WASM calculator
+        working-directory: rust-agent/wasm/calc-wasm
+        run: |
+          cargo build --release --target wasm32-wasi --bin calc-wasm
+          mkdir -p ..
+          cp target/wasm32-wasi/release/calc_wasm.wasm ../calculator.wasm
 
       - name: Build rust-agent
         working-directory: rust-agent
