@@ -12,6 +12,7 @@ __pycache__/
 .tsbuildinfo
 .pnpm-store
 .worktrees/
+chump-repo/
 .DS_Store
 **/.DS_Store
 ui/src/ui/__screenshots__/
@@ -92,6 +93,7 @@ USER.md
 # Agent credentials and memory (NEVER COMMIT)
 /memory/
 .agent/*.json
+.cursor/hooks/state/*.local.txt
 !.agent/workflows/
 /local/
 package-lock.json
