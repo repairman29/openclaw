@@ -206,7 +206,7 @@
 - Tool schema guardrails: avoid raw `format` property names in tool schemas; some validators treat `format` as a reserved keyword and reject the schema.
 - When asked to open a “session” file, open the Pi session logs under `~/.openclaw/agents/<agentId>/sessions/*.jsonl` (use the `agent=<id>` value in the Runtime line of the system prompt; newest unless a specific ID is given), not the default `sessions.json`. If logs are needed from another machine, SSH via Tailscale and read the same path there.
 - Do not rebuild the macOS app over SSH; rebuilds must be run directly on the Mac.
-- Never send streaming/partial replies to external messaging surfaces (WhatsApp, Telegram); only final replies should be delivered there. Streaming/tool events may still go to internal UIs/control channel.
+- Never send streaming/partial replies to external messaging surfaces (WhatsApp, Telegram); only final replies should be delivered there. Strip thinking blocks (e.g. `</think>` and lines starting with `think>`) from agent replies before sending to Discord, Telegram, or other external messaging; send final answer only. Streaming/tool events may still go to internal UIs/control channel.
 - Voice wake forwarding tips:
   - Command template should stay `openclaw-mac agent --message "${text}" --thinking low`; `VoiceWakeForwarder` already shell-escapes `${text}`. Don’t add extra quotes.
   - launchd PATH is minimal; ensure the app’s launch agent PATH includes standard system paths plus your pnpm bin (typically `$HOME/Library/pnpm`) so `pnpm`/`openclaw` binaries resolve when invoked via `openclaw-mac`.
@@ -258,3 +258,24 @@
   - `node --import tsx scripts/release-check.ts`
   - `pnpm release:check`
   - `pnpm test:install:smoke` or `OPENCLAW_INSTALL_SMOKE_SKIP_NONROOT=1 pnpm test:install:smoke` for non-root smoke path.
+
+## Learned User Preferences
+
+- Prefer answering meta-questions and check-ins in plain text; do not use TTS for phrases like "why did you do that", "you there", or "are you there".
+- Make ops and dashboards useful and actionable (health vs target, priority alerts), not just raw metrics.
+- Prefer full requirements and no shortcuts; when stuck, ask for the user's opinion.
+
+## Learned Workspace Facts
+
+- Maclawd is MacBook-only: use `--profile maclawd`; state and config live in `~/.openclaw-maclawd`.
+- When probing the maclawd gateway (e.g. `gateway status`, `maclawd-ensure-online.sh`), unset `OPENCLAW_GATEWAY_TOKEN` so the CLI uses the config token and the probe succeeds.
+- Chump repo is at `~/Projects/Chump` (sibling to Maclawd); ChumpMenu and Chump setup docs use this path.
+- When running Chump CLI directly (not via run-local.sh), set OPENAI_API_BASE=http://localhost:11434/v1 and OPENAI_API_KEY=ollama for local Ollama; otherwise the binary can hit OpenAI and fail with 401.
+- Chump cursor_improve rounds (and Chump–Cursor workflow) are for improving the product and the Chump–Cursor relationship; Chump may write Cursor rules and use Cursor to implement.
+- Chump’s core is Rust only; no Python in the agent runtime. If a tool needs Python, it runs as an isolated subprocess with a timeout and hard restart policy.
+- When switching MLX models (e.g. in Chump/vLLM-MLX), offload or clean up the old model before loading the new one to avoid crashes and memory issues.
+- On this Mac, vLLM-MLX 30B causes Metal OOM; use 14B as default on 8000. Set HF_TOKEN in .env for faster first-time model downloads.
+- One Chump, many chimps: design is one orchestrator with as many workers (chimps) as needed; do not run multiple Chump instances.
+- Pixel 8 Pro / Android 16 QPR beta: a bug can hide the menu even after activation. Turning off Identity Check in Settings has been reported to fix it.
+- In Termux (Android), run termux-setup-storage once for storage access; use ~/storage/downloads/ for the Download folder (not /sdcard/Download/) to avoid permission denied. sshd does not persist by default; use Termux:Boot and ~/.termux/boot (or termux-services) so sshd starts and SSH stays up.
+- In Termux, when pkg asks "Do you want to continue? [Y/n]", press Enter to accept the default; or use yes | pkg install for non-interactive install.
