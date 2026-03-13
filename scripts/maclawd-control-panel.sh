@@ -31,9 +31,9 @@ fi
 # PID file names (relative to STATE_DIR)
 PIDS=(gateway.pid memory.pid mlx-workhorse.pid mlx-scout.pid mlx-triage.pid)
 
-# MLX server config: port model
+# MLX server config: 14B only on 8000; scout (8001) and triage (8003) off.
 MLX_WORKHORSE_PORT=8000
-MLX_WORKHORSE_MODEL="${MLX_WORKHORSE_MODEL:-mlx-community/Qwen2.5-7B-Instruct-4bit}"
+MLX_WORKHORSE_MODEL="${MLX_WORKHORSE_MODEL:-mlx-community/Qwen2.5-14B-Instruct-4bit}"
 MLX_WORKHORSE_ENABLED="${OPENCLAW_MACLAWD_ENABLE_WORKHORSE:-1}"
 MLX_SCOUT_PORT=8001
 MLX_SCOUT_MODEL="${MLX_SCOUT_MODEL:-mlx-community/Qwen2.5-3B-Instruct-4bit}"
@@ -56,7 +56,7 @@ CONFIG_TUNE_INTERVAL="${OPENCLAW_MACLAWD_CONFIG_TUNE_INTERVAL:-3600}"
 CONFIG_TUNE_ENABLED="${OPENCLAW_MACLAWD_ENABLE_CONFIG_TUNE:-1}"
 FORCE_FINAL_STREAMING="${OPENCLAW_MACLAWD_FORCE_FINAL_STREAMING:-1}"
 DISABLE_MODEL_FALLBACKS="${OPENCLAW_MACLAWD_DISABLE_MODEL_FALLBACKS:-1}"
-PREFERRED_AGENT_MODEL="${OPENCLAW_MACLAWD_PREFERRED_AGENT_MODEL:-openai/mlx-community/Qwen2.5-7B-Instruct-4bit}"
+PREFERRED_AGENT_MODEL="${OPENCLAW_MACLAWD_PREFERRED_AGENT_MODEL:-openai/mlx-community/Qwen2.5-14B-Instruct-4bit}"
 PREFERRED_CRON_MODEL="${OPENCLAW_MACLAWD_PREFERRED_CRON_MODEL:-ollama/llama3.2:1b}"
 FORCE_AGENT_MODEL="${OPENCLAW_MACLAWD_FORCE_AGENT_MODEL:-1}"
 CRON_TIMEOUT_CAP="${OPENCLAW_MACLAWD_CRON_TIMEOUT_CAP:-90}"
@@ -169,7 +169,7 @@ const fs = require("node:fs");
 
 const configPath = process.argv[2];
 const preferredAgentModel =
-  process.env.OPENCLAW_MACLAWD_PREFERRED_AGENT_MODEL || "openai/mlx-community/Qwen2.5-7B-Instruct-4bit";
+  process.env.OPENCLAW_MACLAWD_PREFERRED_AGENT_MODEL || "openai/mlx-community/Qwen2.5-14B-Instruct-4bit";
 const forceStreamingOff = /^(1|true|yes|on)$/i.test(
   process.env.OPENCLAW_MACLAWD_FORCE_FINAL_STREAMING || "1",
 );
@@ -209,7 +209,7 @@ const currentPrimary = typeof model.primary === "string" ? model.primary.trim() 
 // Only set primary when empty or when forceAgentModel and different from preferred.
 // Do not overwrite a valid MLX workhorse primary (we prefer MLX for dogfooding).
 const isMlxWorkhorse =
-  /^openai\/mlx-community\/Qwen2\.5-(7B|3B)-Instruct-4bit$/.test(currentPrimary) ||
+  /^openai\/mlx-community\/Qwen2\.5-(14B|7B|3B)-Instruct-4bit$/.test(currentPrimary) ||
   currentPrimary.startsWith("mlx-workhorse/");
 if (currentPrimary.length === 0) {
   model.primary = preferredAgentModel;
