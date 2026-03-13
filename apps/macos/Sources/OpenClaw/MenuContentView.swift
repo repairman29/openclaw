@@ -40,29 +40,53 @@ struct MenuContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Toggle(isOn: self.activeBinding) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(self.connectionLabel)
-                    self.statusLine(label: self.healthStatus.label, color: self.healthStatus.color)
-                    if self.pairingPrompter.pendingCount > 0 {
-                        let repairCount = self.pairingPrompter.pendingRepairCount
-                        let repairSuffix = repairCount > 0 ? " · \(repairCount) repair" : ""
-                        self.statusLine(
-                            label: "Pairing approval pending (\(self.pairingPrompter.pendingCount))\(repairSuffix)",
-                            color: .orange)
-                    }
-                    if self.devicePairingPrompter.pendingCount > 0 {
-                        let repairCount = self.devicePairingPrompter.pendingRepairCount
-                        let repairSuffix = repairCount > 0 ? " · \(repairCount) repair" : ""
-                        self.statusLine(
-                            label: "Device pairing pending (\(self.devicePairingPrompter.pendingCount))\(repairSuffix)",
-                            color: .orange)
+            Section {
+                Toggle(isOn: self.activeBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Image(systemName: self.connectionModeIcon)
+                                .font(.caption)
+                                .foregroundStyle(self.connectionModeColor)
+                            Text(self.connectionLabel)
+                        }
+                        self.statusLine(label: self.healthStatus.label, color: self.healthStatus.color)
+                        if self.pairingPrompter.pendingCount > 0 {
+                            let repairCount = self.pairingPrompter.pendingRepairCount
+                            let repairSuffix = repairCount > 0 ? " · \(repairCount) repair" : ""
+                            self.statusLine(
+                                label: "Pairing approval pending (\(self.pairingPrompter.pendingCount))\(repairSuffix)",
+                                color: .orange)
+                        }
+                        if self.devicePairingPrompter.pendingCount > 0 {
+                            let repairCount = self.devicePairingPrompter.pendingRepairCount
+                            let repairSuffix = repairCount > 0 ? " · \(repairCount) repair" : ""
+                            self.statusLine(
+                                label: "Device pairing pending (\(self.devicePairingPrompter.pendingCount))\(repairSuffix)",
+                                color: .orange)
+                        }
                     }
                 }
-            }
-            .disabled(self.state.connectionMode == .unconfigured)
+                .disabled(self.state.connectionMode == .unconfigured)
 
-            Divider()
+                if self.showStartGatewayButton {
+                    Button {
+                        self.gatewayManager.setActive(true)
+                    } label: {
+                        Label("Start gateway", systemImage: "play.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Start gateway")
+                    .accessibilityHint("Starts the local OpenClaw gateway when it is not running")
+                }
+            } header: {
+                Text("Connection")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Connection status and gateway")
+
+            Section {
             Toggle(isOn: self.heartbeatsBinding) {
                 HStack(spacing: 8) {
                     Label("Send Heartbeats", systemImage: "waveform.path.ecg")
@@ -105,7 +129,13 @@ struct MenuContent: View {
             if self.showVoiceWakeMicPicker {
                 self.voiceWakeMicMenu
             }
-            Divider()
+            } header: {
+                Text("Features")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
             Button {
                 Task { @MainActor in
                     await self.openDashboard()
@@ -145,7 +175,13 @@ struct MenuContent: View {
             }
             .disabled(!voiceWakeSupported)
             .opacity(voiceWakeSupported ? 1 : 0.5)
-            Divider()
+            } header: {
+                Text("Quick actions")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
             Button("Settings…") { self.open(tab: .general) }
                 .keyboardShortcut(",", modifiers: [.command])
             self.debugMenu
@@ -154,6 +190,11 @@ struct MenuContent: View {
                 Button("Update ready, restart now?") { updater.checkForUpdates(nil) }
             }
             Button("Quit") { NSApplication.shared.terminate(nil) }
+            } header: {
+                Text("Settings")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
         .task(id: self.state.swabbleEnabled) {
             if self.state.swabbleEnabled {
@@ -194,6 +235,30 @@ struct MenuContent: View {
             "Remote OpenClaw Active"
         case .local:
             "OpenClaw Active"
+        }
+    }
+
+    private var connectionModeIcon: String {
+        switch self.state.connectionMode {
+        case .unconfigured: return "exclamationmark.triangle"
+        case .remote: return "cloud"
+        case .local: return "network"
+        }
+    }
+
+    private var connectionModeColor: Color {
+        switch self.state.connectionMode {
+        case .unconfigured: return .orange
+        case .remote: return .blue
+        case .local: return .green
+        }
+    }
+
+    private var showStartGatewayButton: Bool {
+        guard self.state.connectionMode == .local, !self.state.isPaused else { return false }
+        switch self.gatewayManager.status {
+        case .stopped, .failed: return true
+        case .starting, .running, .attachedExisting: return false
         }
     }
 
