@@ -167,3 +167,7 @@ Screen commands:
   - `calendar.events`, `calendar.add`
   - `motion.activity`, `motion.pedometer`
   - `app.update`
+
+## Known issues (Pixel / beta)
+
+- **Identity Check bug (Android 16 / QPR beta, Pixel 8 Pro):** On some beta builds, the menu may stay hidden even after activation. Turning off **Identity Check** in device Settings has been reported to fix this.
