@@ -69,6 +69,13 @@ The Control UI can localize itself on first load based on your browser locale, a
 - The selected locale is saved in browser storage and reused on future visits.
 - Missing translation keys fall back to English.
 
+## Installable app (PWA)
+
+The Control UI is a **Progressive Web App (PWA)**. You can install it from the browser (e.g. "Add to Home Screen" on mobile, "Install" in Chrome on desktop) for a standalone window and faster access.
+
+- **Offline:** The app shell (HTML, JS, CSS, icons) is cached by a service worker. When you open the installed app while offline, the UI loads and shows a connection error until the Gateway is reachable again. Gateway URL and token are stored in browser storage, so reconnecting is seamless once back online.
+- **Icons and manifest:** The UI ships with a web app manifest and a minimal service worker; for full installability on all devices, consider adding 192×192 and 512×512 PNG icons to the build.
+
 ## What it can do (today)
 
 - Chat with the model via Gateway WS (`chat.history`, `chat.send`, `chat.abort`, `chat.inject`)

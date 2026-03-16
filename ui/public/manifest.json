@@ -1,0 +1,19 @@
+{
+  "name": "OpenClaw Control",
+  "short_name": "OpenClaw",
+  "description": "Browser-based control UI for the OpenClaw Gateway (chat, nodes, config)",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#ff5c5c",
+  "background_color": "#12141a",
+  "scope": "./",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

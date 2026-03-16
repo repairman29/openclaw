@@ -109,6 +109,7 @@ export function renderMessageGroup(
   group: MessageGroup,
   opts: {
     onOpenSidebar?: (content: string) => void;
+    onPinArtifact?: (artifact: { id: string; title: string; content: string }) => void;
     showReasoning: boolean;
     assistantName?: string;
     assistantAvatar?: string | null;
@@ -139,11 +140,13 @@ export function renderMessageGroup(
         ${group.messages.map((item, index) =>
           renderGroupedMessage(
             item.message,
+            item.key,
             {
               isStreaming: group.isStreaming && index === group.messages.length - 1,
               showReasoning: opts.showReasoning,
             },
             opts.onOpenSidebar,
+            opts.onPinArtifact,
           ),
         )}
         <div class="chat-group-footer">
@@ -223,8 +226,10 @@ function renderMessageImages(images: ImageBlock[]) {
 
 function renderGroupedMessage(
   message: unknown,
+  messageKey: string,
   opts: { isStreaming: boolean; showReasoning: boolean },
   onOpenSidebar?: (content: string) => void,
+  onPinArtifact?: (artifact: { id: string; title: string; content: string }) => void,
 ) {
   const m = message as Record<string, unknown>;
   const role = typeof m.role === "string" ? m.role : "unknown";
@@ -247,6 +252,8 @@ function renderGroupedMessage(
   const reasoningMarkdown = extractedThinking ? formatReasoningMarkdown(extractedThinking) : null;
   const markdown = markdownBase;
   const canCopyMarkdown = role === "assistant" && Boolean(markdown?.trim());
+  const canPinArtifact =
+    role === "assistant" && Boolean(markdown?.trim()) && Boolean(onPinArtifact);
 
   const bubbleClasses = [
     "chat-bubble",
@@ -265,15 +272,45 @@ function renderGroupedMessage(
     return nothing;
   }
 
+  const pinTitle =
+    markdown && markdown.length > 60
+      ? `${markdown.slice(0, 57).trim()}…`
+      : (markdown ?? "Pinned message");
+
   return html`
     <div class="${bubbleClasses}">
       ${canCopyMarkdown ? renderCopyAsMarkdownButton(markdown!) : nothing}
+      ${
+        canPinArtifact
+          ? html`
+            <button
+              class="btn chat-pin-artifact"
+              type="button"
+              title="Pin to sidecar"
+              aria-label="Pin to sidecar"
+              @click=${() =>
+                onPinArtifact!({
+                  id: `artifact-${messageKey}`,
+                  title: pinTitle,
+                  content: markdown!,
+                })}
+            >
+              Pin to sidecar
+            </button>
+          `
+          : nothing
+      }
       ${renderMessageImages(images)}
       ${
         reasoningMarkdown
-          ? html`<div class="chat-thinking">${unsafeHTML(
-              toSanitizedMarkdownHtml(reasoningMarkdown),
-            )}</div>`
+          ? html`
+              <details class="chat-thinking-block" open>
+                <summary class="chat-thinking-block__summary">Reasoning</summary>
+                <div class="chat-thinking">${unsafeHTML(
+                  toSanitizedMarkdownHtml(reasoningMarkdown),
+                )}</div>
+              </details>
+            `
           : nothing
       }
       ${

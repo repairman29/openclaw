@@ -12,7 +12,7 @@ import { detectTextDirection } from "../text-direction.ts";
 import type { SessionsListResult } from "../types.ts";
 import type { ChatItem, MessageGroup } from "../types/chat-types.ts";
 import type { ChatAttachment, ChatQueueItem } from "../ui-types.ts";
-import { renderMarkdownSidebar } from "./markdown-sidebar.ts";
+import { renderSidecar } from "./sidecar.ts";
 import "../components/resizable-divider.ts";
 
 export type CompactionIndicatorStatus = {
@@ -78,8 +78,15 @@ export type ChatProps = {
   onNewSession: () => void;
   onOpenSidebar?: (content: string) => void;
   onCloseSidebar?: () => void;
+  onSidebarModeChange?: (mode: "tool" | "artifacts" | "timeline") => void;
+  onPinArtifact?: (artifact: { id: string; title: string; content: string }) => void;
+  onUnpinArtifact?: (id: string) => void;
   onSplitRatioChange?: (ratio: number) => void;
   onChatScroll?: (event: Event) => void;
+  // Sidecar state (tool output, artifacts, run timeline)
+  sidebarMode?: "tool" | "artifacts" | "timeline";
+  pinnedArtifacts?: Array<{ id: string; title: string; content: string }>;
+  runTimelineEntries?: Array<import("../app-tool-stream.js").ToolStreamEntry>;
 };
 
 const COMPACTION_TOAST_DURATION_MS = 5000;
@@ -302,6 +309,7 @@ export function renderChat(props: ChatProps) {
           if (item.kind === "group") {
             return renderMessageGroup(item, {
               onOpenSidebar: props.onOpenSidebar,
+              onPinArtifact: props.onPinArtifact,
               showReasoning,
               assistantName: props.assistantName,
               assistantAvatar: assistantIdentity.avatar,
@@ -354,16 +362,22 @@ export function renderChat(props: ChatProps) {
                 @resize=${(e: CustomEvent) => props.onSplitRatioChange?.(e.detail.splitRatio)}
               ></resizable-divider>
               <div class="chat-sidebar">
-                ${renderMarkdownSidebar({
-                  content: props.sidebarContent ?? null,
-                  error: props.sidebarError ?? null,
+                ${renderSidecar({
+                  mode: props.sidebarMode ?? "tool",
+                  toolContent: props.sidebarContent ?? null,
+                  toolError: props.sidebarError ?? null,
+                  pinnedArtifacts: props.pinnedArtifacts ?? [],
+                  runTimelineEntries: props.runTimelineEntries ?? [],
                   onClose: props.onCloseSidebar!,
+                  onModeChange: (mode) => props.onSidebarModeChange?.(mode),
                   onViewRawText: () => {
                     if (!props.sidebarContent || !props.onOpenSidebar) {
                       return;
                     }
                     props.onOpenSidebar(`\`\`\`\n${props.sidebarContent}\n\`\`\``);
                   },
+                  onOpenToolOutput: (content) => props.onOpenSidebar?.(content),
+                  onUnpinArtifact: (id) => props.onUnpinArtifact?.(id),
                 })}
               </div>
             `
@@ -465,6 +479,20 @@ export function renderChat(props: ChatProps) {
             >
               ${canAbort ? "Stop" : "New session"}
             </button>
+            ${
+              !canAbort && props.connected
+                ? html`
+                  <button
+                    class="btn chat-branch-btn"
+                    type="button"
+                    title="Start a new branch (new session)"
+                    @click=${props.onNewSession}
+                  >
+                    New branch
+                  </button>
+                `
+                : nothing
+            }
             <button
               class="btn primary"
               ?disabled=${!props.connected}

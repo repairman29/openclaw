@@ -1,6 +1,7 @@
 import { html } from "lit";
 import { ConnectErrorDetailCodes } from "../../../../src/gateway/protocol/connect-error-details.js";
 import { t, i18n, SUPPORTED_LOCALES, type Locale } from "../../i18n/index.ts";
+import type { ExecApprovalRequest } from "../controllers/exec-approval.ts";
 import { buildExternalLinkRel, EXTERNAL_LINK_TARGET } from "../external-link.ts";
 import { formatRelativeTimestamp, formatDurationHuman } from "../format.ts";
 import type { GatewayHelloOk } from "../gateway.ts";
@@ -31,6 +32,10 @@ export type OverviewProps = {
   sessionRows: GatewaySessionRow[];
   channelsSnapshot: ChannelsStatusSnapshot | null;
   lastChannelsRefresh: number | null;
+  execApprovalQueue?: ExecApprovalRequest[];
+  basePath?: string;
+  onNavigateToNodes?: () => void;
+  onNavigateToCron?: () => void;
   onSettingsChange: (next: UiSettings) => void;
   onPasswordChange: (next: string) => void;
   onSessionKeyChange: (next: string) => void;
@@ -355,13 +360,39 @@ export function renderOverview(props: OverviewProps) {
   if (discord?.configured && !discord.running) {
     priorityAlerts.push("Discord is configured but not running.");
   }
+  const pendingApprovals = props.execApprovalQueue?.length ?? 0;
+  if (pendingApprovals > 0) {
+    priorityAlerts.push(`${pendingApprovals} pending exec approval(s) — resolve in Nodes.`);
+  }
   const tileToneForReliability =
     cronReliabilityPct == null ? "warn" : cronReliabilityPct >= 90 ? "ok" : "warn";
   const tileToneForTimeout = timeoutRiskLabel === "Low" ? "ok" : "warn";
   const tileToneForDiscord = discordDeliveryLabel === "Active" ? "ok" : "warn";
 
+  const recentRunsList = props.cronRuns.slice(0, 5);
+
   return html`
     <section class="grid grid-cols-2">
+      ${
+        pendingApprovals > 0
+          ? html`
+              <div class="card callout warn" style="grid-column: 1 / -1;">
+                <strong>Pending exec approvals: ${pendingApprovals}</strong>
+                <p class="muted" style="margin-top: 6px;">
+                  Resolve in the Nodes tab (exec approval queue).
+                </p>
+                <button
+                  class="btn primary"
+                  style="margin-top: 10px;"
+                  type="button"
+                  @click=${() => props.onNavigateToNodes?.()}
+                >
+                  Open Nodes
+                </button>
+              </div>
+            `
+          : ""
+      }
       <div class="card">
         <div class="card-title">${t("overview.access.title")}</div>
         <div class="card-sub">${t("overview.access.subtitle")}</div>
@@ -537,6 +568,37 @@ export function renderOverview(props: OverviewProps) {
               <div class="callout" style="margin-top: 12px">No critical alerts right now.</div>
             </section>
           `
+    }
+
+    ${
+      recentRunsList.length > 0
+        ? html`
+            <section class="card" style="margin-top: 18px;">
+              <div class="card-title">Recent runs</div>
+              <div class="card-sub">Latest cron runs. <button class="btn link" type="button" @click=${() => props.onNavigateToCron?.()}>Open Cron tab</button></div>
+              <div class="table" style="margin-top: 12px;">
+                <div class="table-head">
+                  <div>Job</div>
+                  <div>Status</div>
+                  <div>Time</div>
+                </div>
+                ${recentRunsList.map(
+                  (run) => html`
+                    <div class="table-row">
+                      <div class="mono">${run.jobId ?? run.jobName ?? "—"}</div>
+                      <div>
+                        <span class="chip ${run.status === "ok" ? "chip-ok" : "chip-danger"}">
+                          ${run.status ?? "—"}
+                        </span>
+                      </div>
+                      <div class="muted">${formatRelativeTimestamp(run.ts)}</div>
+                    </div>
+                  `,
+                )}
+              </div>
+            </section>
+          `
+        : ""
     }
 
     <section class="card" style="margin-top: 18px;">

@@ -18,6 +18,7 @@ import {
 } from "./app-settings.ts";
 import { loadControlUiBootstrapConfig } from "./controllers/control-ui-bootstrap.ts";
 import type { Tab } from "./navigation.ts";
+import { registerServiceWorker } from "./pwa-register.ts";
 
 type LifecycleHost = {
   basePath: string;
@@ -68,6 +69,7 @@ export function handleConnected(host: LifecycleHost) {
 
 export function handleFirstUpdated(host: LifecycleHost) {
   observeTopbar(host as unknown as Parameters<typeof observeTopbar>[0]);
+  registerServiceWorker(inferBasePath());
 }
 
 export function handleDisconnected(host: LifecycleHost) {

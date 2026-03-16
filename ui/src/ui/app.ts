@@ -158,6 +158,8 @@ export class OpenClawApp extends LitElement {
   @state() sidebarOpen = false;
   @state() sidebarContent: string | null = null;
   @state() sidebarError: string | null = null;
+  @state() sidebarMode: "tool" | "artifacts" | "timeline" = "tool";
+  @state() pinnedArtifacts: Array<{ id: string; title: string; content: string }> = [];
   @state() splitRatio = this.settings.splitRatio;
 
   @state() nodesLoading = false;
@@ -388,6 +390,11 @@ export class OpenClawApp extends LitElement {
   private logsScrollFrame: number | null = null;
   private toolStreamById = new Map<string, ToolStreamEntry>();
   private toolStreamOrder: string[] = [];
+  get runTimelineEntries(): ToolStreamEntry[] {
+    return this.toolStreamOrder
+      .map((id) => this.toolStreamById.get(id))
+      .filter((e): e is ToolStreamEntry => e != null);
+  }
   refreshSessionsAfterChat = new Set<string>();
   basePath = "";
   private popStateHandler = () =>
@@ -590,9 +597,24 @@ export class OpenClawApp extends LitElement {
       window.clearTimeout(this.sidebarCloseTimer);
       this.sidebarCloseTimer = null;
     }
+    this.sidebarMode = "tool";
     this.sidebarContent = content;
     this.sidebarError = null;
     this.sidebarOpen = true;
+  }
+
+  setSidebarMode(mode: "tool" | "artifacts" | "timeline") {
+    this.sidebarMode = mode;
+  }
+
+  handlePinArtifact(artifact: { id: string; title: string; content: string }) {
+    this.pinnedArtifacts = [...this.pinnedArtifacts.filter((a) => a.id !== artifact.id), artifact];
+    this.sidebarMode = "artifacts";
+    this.sidebarOpen = true;
+  }
+
+  handleUnpinArtifact(id: string) {
+    this.pinnedArtifacts = this.pinnedArtifacts.filter((a) => a.id !== id);
   }
 
   handleCloseSidebar() {

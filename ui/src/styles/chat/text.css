@@ -2,6 +2,44 @@
    CHAT TEXT STYLING
    ============================================= */
 
+.chat-thinking-block {
+  margin-bottom: 10px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chat-thinking-block__summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  list-style: none;
+  user-select: none;
+}
+
+.chat-thinking-block__summary::-webkit-details-marker {
+  display: none;
+}
+
+.chat-thinking-block__summary::before {
+  content: "▾ ";
+  display: inline-block;
+  transition: transform 120ms ease;
+}
+
+.chat-thinking-block:not([open]) .chat-thinking-block__summary::before {
+  transform: rotate(-90deg);
+}
+
+.chat-thinking-block .chat-thinking {
+  margin-bottom: 0;
+  border-radius: 0 0 10px 10px;
+  border: none;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
 .chat-thinking {
   margin-bottom: 10px;
   padding: 10px 12px;

@@ -71,6 +71,115 @@
   font-size: 14px;
 }
 
+.sidebar-panel--with-tabs .sidebar-header {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sidebar-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.sidebar-tab {
+  padding: 4px 10px;
+  font-size: 12px;
+  min-width: auto;
+}
+
+.sidebar-tab--active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.sidebar-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sidebar-timeline-entry {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-timeline-entry:last-child {
+  border-bottom: none;
+}
+
+.sidebar-timeline-index {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg-muted);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-timeline-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-timeline-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.sidebar-timeline-detail {
+  font-size: 12px;
+  margin-top: 2px;
+  color: var(--muted);
+}
+
+.sidebar-timeline-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.sidebar-artifacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sidebar-artifact-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.sidebar-artifact-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.sidebar-artifact-unpin {
+  padding: 2px 6px;
+  min-width: auto;
+}
+
+.sidebar-artifact-content {
+  margin-top: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
 .sidebar-content {
   flex: 1;
   overflow: auto;

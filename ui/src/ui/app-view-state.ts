@@ -72,6 +72,9 @@ export type AppViewState = {
   sidebarOpen: boolean;
   sidebarContent: string | null;
   sidebarError: string | null;
+  sidebarMode: "tool" | "artifacts" | "timeline";
+  pinnedArtifacts: Array<{ id: string; title: string; content: string }>;
+  runTimelineEntries: Array<import("./app-tool-stream.js").ToolStreamEntry>;
   splitRatio: number;
   scrollToBottom: (opts?: { smooth?: boolean }) => void;
   devicesLoading: boolean;
@@ -317,5 +320,8 @@ export type AppViewState = {
     handleLogsScroll: (event: Event) => void;
     handleOpenSidebar: (content: string) => void;
     handleCloseSidebar: () => void;
+    setSidebarMode: (mode: "tool" | "artifacts" | "timeline") => void;
+    handlePinArtifact: (artifact: { id: string; title: string; content: string }) => void;
+    handleUnpinArtifact: (id: string) => void;
     handleSplitRatioChange: (ratio: number) => void;
   };
