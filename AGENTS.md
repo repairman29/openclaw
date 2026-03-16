@@ -264,18 +264,27 @@
 - Prefer answering meta-questions and check-ins in plain text; do not use TTS for phrases like "why did you do that", "you there", or "are you there".
 - Make ops and dashboards useful and actionable (health vs target, priority alerts), not just raw metrics.
 - Prefer full requirements and no shortcuts; when stuck, ask for the user's opinion.
+- "Do it for me" means execute everything directly right now; never return a list of commands or steps for Jeff to paste manually.
+- Single-word confirmations ("yes", "done", "ok", "go") mean proceed with the current plan; "keep going" or "in order" means continue all remaining steps autonomously without re-asking.
+- "Commit/push and deploy" always means the full fleet in one sequence: build, commit, push to Chump repo, and deploy the new binary to the Pixel (Mabel); do not stop at commit.
+- When given a list of next steps and Jeff says "do all this for me", execute the full list from top to bottom without pausing for confirmation on each item.
 
 ## Learned Workspace Facts
 
 - Maclawd is MacBook-only: use `--profile maclawd`; state and config live in `~/.openclaw-maclawd`.
 - When probing the maclawd gateway (e.g. `gateway status`, `maclawd-ensure-online.sh`), unset `OPENCLAW_GATEWAY_TOKEN` so the CLI uses the config token and the probe succeeds.
-- Chump repo is at `~/Projects/Chump` (sibling to Maclawd); ChumpMenu and Chump setup docs use this path.
-- When running Chump CLI directly (not via run-local.sh), set OPENAI_API_BASE=http://localhost:11434/v1 and OPENAI_API_KEY=ollama for local Ollama; otherwise the binary can hit OpenAI and fail with 401.
+- In this workspace the user runs Chump and their own infra for bots and LLMs; do not assume or recommend OpenClaw for Chump or Mabel. Chump repo is at `~/Projects/Chump` (sibling to Maclawd); ChumpMenu and Chump setup docs use this path.
+- Chump `.env` defaults to `OPENAI_API_BASE=http://localhost:8000/v1` (vLLM-MLX on Mac); when running CLI directly without the cascade, set `OPENAI_API_BASE=http://localhost:11434/v1 OPENAI_API_KEY=ollama` for Ollama fallback. Cascade (CHUMP_CASCADE_ENABLED=1) 10 cloud slots: 1=Groq, 2=Cerebras, 3=Mistral, 4=OpenRouter, 5=Gemini, 6=GitHub, 7=NVIDIA, 8=SambaNova, 9=xAI, 10=Scaleway. Port 8000 = Mac vLLM-MLX only; Mabel on Pixel uses her own local llama-server (not 8000). Never configure Mabel to use the Mac's 8000 endpoint as her primary model.
 - Chump cursor_improve rounds (and Chump–Cursor workflow) are for improving the product and the Chump–Cursor relationship; Chump may write Cursor rules and use Cursor to implement.
 - Chump’s core is Rust only; no Python in the agent runtime. If a tool needs Python, it runs as an isolated subprocess with a timeout and hard restart policy.
 - When switching MLX models (e.g. in Chump/vLLM-MLX), offload or clean up the old model before loading the new one to avoid crashes and memory issues.
-- On this Mac, vLLM-MLX 30B causes Metal OOM; use 14B as default on 8000. Set HF_TOKEN in .env for faster first-time model downloads.
+- On this Mac, vLLM-MLX 30B causes Metal OOM; use 14B as default on 8000 (current model: Qwen3-14B-4bit). Set HF_TOKEN in .env for faster first-time model downloads.
 - One Chump, many chimps: design is one orchestrator with as many workers (chimps) as needed; do not run multiple Chump instances.
-- Pixel 8 Pro / Android 16 QPR beta: a bug can hide the menu even after activation. Turning off Identity Check in Settings has been reported to fix it.
-- In Termux (Android), run termux-setup-storage once for storage access; use ~/storage/downloads/ for the Download folder (not /sdcard/Download/) to avoid permission denied. sshd does not persist by default; use Termux:Boot and ~/.termux/boot (or termux-services) so sshd starts and SSH stays up.
-- In Termux, when pkg asks "Do you want to continue? [Y/n]", press Enter to accept the default; or use yes | pkg install for non-interactive install.
+- Chump has its own PWA in the Chump repo at `web/` (index.html, manifest.json, sw.js), served by `./run-web.sh` or `rust-agent --web` on port 3000; this is separate from the Maclawd Control UI.
+- Chump primary logs: `~/Projects/Chump/logs/chump.log` (tool calls, sessions, config) and `logs/discord.log` (connection events, bot replies); `logs/farmer-brown.log` for heartbeat rounds; `logs/vllm-mlx-8000.log` for the local LLM server.
+- To command Chump to work on another repo, say "work on repo owner/name" or "switch to repo X"; Chump will call `set_working_repo` (and `github_clone_or_pull` if not yet cloned) then proceed with the task in that repo.
+- When sending a DM that should appear from Mabel, run the script on the Pixel (Mabel's DISCORD_TOKEN); on the Mac, Chump's token is used and the message shows as Chump. Mabel's Discord app ID is 1478435625266053333; Chump's is 1480406053849010369. Never run both bots with the same token.
+- Fleet deploy: `scripts/deploy-fleet.sh` is the canonical one-command deploy (Mac + Pixel). Use `--mac` or `--pixel` to deploy one side. Android builds use `ANDROID_TARGET_DIR=target-android` (separate cargo artifact dir) to avoid lock contention with concurrent Mac builds.
+- Tailscale IPs: Mac = 100.89.67.76, Pixel = 100.84.132.93. iPhone inference node (InferLM) at 10.1.10.175:8889 on Tailscale — can be used as a cascade slot for LLM mesh.
+- Pixel 8 Pro / Android 16 QPR beta: a bug can hide the menu even after activation. Turning off Identity Check in Settings has been reported to fix it. In Termux: run termux-setup-storage once for storage access; use ~/storage/downloads/ for the Download folder (not /sdcard/Download/) to avoid permission denied. sshd does not persist by default; use Termux:Boot and ~/.termux/boot (or termux-services) so sshd starts and SSH stays up. When pkg asks "Do you want to continue? [Y/n]", press Enter to accept the default; or use yes | pkg install for non-interactive install.
+- User's Discord ID for Chump/Mabel test DMs: 377601792764018698.
